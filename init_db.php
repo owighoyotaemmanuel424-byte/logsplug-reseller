@@ -8,17 +8,15 @@ if (!file_exists(__DIR__ . '/config.php')) {
 }
 require_once __DIR__ . '/config.php';
 
-$databaseUrl = defined('DATABASE_URL') ? trim((string) DATABASE_URL) : '';
-if ($databaseUrl === '') {
+if (!function_exists('createDatabaseConnection')) {
     return;
 }
 
 try {
-    $pdo = new PDO($databaseUrl, null, null, [
-        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-        PDO::ATTR_EMULATE_PREPARES => false,
-    ]);
+    $pdo = createDatabaseConnection();
+    if ($pdo === null) {
+        return;
+    }
 
     $pdo->exec(<<<'SQL'
 CREATE TABLE IF NOT EXISTS users (
