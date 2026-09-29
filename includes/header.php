@@ -28,7 +28,6 @@ $dbPath = isset($dbPath) ? $dbPath : (defined('DB_PATH') ? DB_PATH : '');
                 <?php endif; ?>
             <?php endif; ?>        </nav>
         <script>(function(){var t=document.querySelector('.site-nav-toggle');var n=document.getElementById('site-nav');if(t&&n){t.addEventListener('click',function(){var o=n.classList.toggle('site-nav--open');t.setAttribute('aria-expanded',o);});document.addEventListener('click',function(e){if(!t.contains(e.target)&&!n.contains(e.target)){n.classList.remove('site-nav--open');t.setAttribute('aria-expanded','false');}});}})();</script>
-        <?php endif; ?>
     </div>
 </header>
 <div class="site-wrap <?php echo $layout === 'narrow' ? 'narrow' : ($layout === 'wide' ? 'wide' : ''); ?>">
