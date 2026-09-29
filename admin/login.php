@@ -6,6 +6,11 @@ if (isAdminLoggedIn()) {
     exit;
 }
 
+if (function_exists('isAdminSetup') && isAdminSetup()) {
+    header('Location: setup.php');
+    exit;
+}
+
 $pdo = function_exists('getDb') ? getDb() : null;
 $noDb = !defined('DATABASE_URL') || trim((string) DATABASE_URL) === '' || $pdo === null;
 
