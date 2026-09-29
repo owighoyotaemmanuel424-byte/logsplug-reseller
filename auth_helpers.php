@@ -3,7 +3,20 @@
  * Authentication, wallet and order helpers backed by Neon PostgreSQL.
  */
 if (!defined('RESELLER_API_KEY')) require_once __DIR__ . '/config.php';
-if (session_status() === PHP_SESSION_NONE) session_start();
+
+if (session_status() === PHP_SESSION_NONE) {
+    $secureCookie = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+        || (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && strtolower((string) $_SERVER['HTTP_X_FORWARDED_PROTO']) === 'https');
+    session_set_cookie_params([
+        'lifetime' => 0,
+        'path' => '/',
+        'secure' => $secureCookie,
+        'httponly' => true,
+        'samesite' => 'Lax',
+    ]);
+    ini_set('session.use_strict_mode', '1');
+    session_start();
+}
 
 function getDb(): ?PDO
 {
@@ -42,20 +55,49 @@ function requireLogin(): void {
 }
 function loginUser(string $email,string $password): bool {
     $pdo = getDb();
-    if (!$pdo) return false;
+    if (!$pdo) {
+        error_log('Login failed: database unavailable.');
+        return false;
+    }
     $email = strtolower(trim($email));
     $st = $pdo->prepare('SELECT id,password_hash FROM users WHERE LOWER(email)=LOWER(?) LIMIT 1');
     $st->execute([$email]);
     $row = $st->fetch();
-    if (!$row || !password_verify($password, (string) $row['password_hash'])) return false;
-    session_regenerate_id(true);
+    if (!$row) {
+        error_log('Login failed: customer email not found.');
+        return false;
+    }
+    if (!password_verify($password, (string) $row['password_hash'])) {
+        error_log('Login failed: password verification failed.');
+        return false;
+    }
+    session_regenerate_id(false);
     $_SESSION['user_id'] = (int) $row['id'];
+    session_write_close();
     return true;
 }
 function registerUser(string $email,string $password,string $name): ?string {
     $pdo=getDb(); if(!$pdo)return 'Database not configured.';
-    try{$pdo->beginTransaction();$st=$pdo->prepare('INSERT INTO users(email,password_hash,name) VALUES(?,?,?) RETURNING id');$st->execute([$email,password_hash($password,PASSWORD_DEFAULT),$name]);$id=(int)$st->fetchColumn();$pdo->prepare('INSERT INTO wallets(user_id,balance) VALUES(?,0)')->execute([$id]);$pdo->commit();session_regenerate_id(true);$_SESSION['user_id']=$id;return null;}
-    catch(PDOException $e){if($pdo->inTransaction())$pdo->rollBack();if($e->getCode()==='23505')return 'Email already registered.';error_log('Registration failed: '.$e->getMessage());return 'Registration failed.';}
+    $email = strtolower(trim($email));
+    $name = trim($name);
+    try {
+        $pdo->beginTransaction();
+        $st=$pdo->prepare('INSERT INTO users(email,password_hash,name) VALUES(?,?,?) RETURNING id');
+        $st->execute([$email,password_hash($password,PASSWORD_DEFAULT),$name]);
+        $id=(int)$st->fetchColumn();
+        $pdo->prepare('INSERT INTO wallets(user_id,balance) VALUES(?,0)')->execute([$id]);
+        $pdo->commit();
+        session_regenerate_id(false);
+        $_SESSION['user_id']=$id;
+        session_write_close();
+        error_log('Customer registration completed successfully.');
+        return null;
+    } catch(PDOException $e) {
+        if($pdo->inTransaction())$pdo->rollBack();
+        if($e->getCode()==='23505')return 'Email already registered.';
+        error_log('Registration failed: '.$e->getMessage());
+        return 'Registration failed.';
+    }
 }
 function logoutUser(): void {
     $_SESSION=[]; if(ini_get('session.use_cookies')){$p=session_get_cookie_params();setcookie(session_name(),'',time()-42000,$p['path'],$p['domain'],$p['secure'],$p['httponly']);} session_destroy();
