@@ -21,7 +21,6 @@ foreach ($requiredIncludes as $file) {
     }
 }
 $databaseConfigured = defined('DATABASE_URL') && trim((string) DATABASE_URL) !== '';
-require_once __DIR__ . '/init_db.php';
 require_once __DIR__ . '/auth_helpers.php';
 $currentUser = function_exists('getCurrentUser') ? getCurrentUser() : null;
 
@@ -48,7 +47,8 @@ if ($apiKey && $baseUrl) {
     curl_setopt_array($ch, [
         CURLOPT_RETURNTRANSFER => true,
         CURLOPT_HTTPHEADER => ['X-Api-Key: ' . $apiKey],
-        CURLOPT_TIMEOUT => 15,
+        CURLOPT_CONNECTTIMEOUT => 3,
+        CURLOPT_TIMEOUT => 6,
         CURLOPT_FOLLOWLOCATION => true,
     ]);
     $res = curl_exec($ch);
