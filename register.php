@@ -22,11 +22,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } else {
         $err = registerUser($email, $password, $name);
         if ($err === null) {
-            $success = true;
-            if (loginUser($email, $password)) {
-                header('Location: index.php');
-                exit;
-            }
+            header('Location: index.php');
+            exit;
         } else {
             $error = $err;
         }
