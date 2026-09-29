@@ -74,7 +74,14 @@ function neonAuthCookieHeader(): string {
 function neonAuthRequest(string $path, ?array $body = null): array {
     $base = defined('NEON_AUTH_URL') ? rtrim((string)NEON_AUTH_URL, '/') : '';
     if ($base === '') return ['ok'=>false,'data'=>null,'error'=>'NEON_AUTH_URL is not configured.'];
+    $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') || (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && strtolower((string)$_SERVER['HTTP_X_FORWARDED_PROTO']) === 'https') ? 'https' : 'http';
+    $host = $_SERVER['HTTP_HOST'] ?? '';
+    $origin = $host !== '' ? $scheme . '://' . $host : '';
     $headers = ['Accept: application/json','Content-Type: application/json'];
+    if ($origin !== '') {
+        $headers[] = 'Origin: ' . $origin;
+        $headers[] = 'Referer: ' . $origin . '/';
+    }
     $cookie = neonAuthCookieHeader();
     if ($cookie !== '') $headers[] = 'Cookie: '.$cookie;
     $opts = ['http'=>['method'=>$body===null?'GET':'POST','header'=>implode("\r\n",$headers),'ignore_errors'=>true,'timeout'=>15]];
@@ -145,7 +152,7 @@ function requireLogin(): void {
     if(getCurrentUser()===null){header('Location: login.php?redirect='.urlencode($_SERVER['REQUEST_URI']??'index.php'));exit;}
 }
 function loginUser(string $email,string $password): bool {
-    $r=neonAuthRequest('/sign-in/email',['email'=>strtolower(trim($email)),'password'=>$password,'rememberMe'=>true]);
+    $r=neonAuthRequest('/sign-in/email',['email'=>strtolower(trim($email)),'password'=>$password,'rememberMe'=>true,'callbackURL'=>$origin . '/index.php']);
     if(!$r['ok']){error_log('Neon Auth login failed: '.($r['error']??'unknown'));return false;}
     $user=$r['data']['user']??null;
     if(!is_array($user)){ $s=neonAuthRequest('/get-session'); $user=$s['data']['user']??null; }
@@ -154,7 +161,7 @@ function loginUser(string $email,string $password): bool {
     session_regenerate_id(true);$_SESSION['user_id']=$local['id'];session_write_close();return true;
 }
 function registerUser(string $email,string $password,string $name): ?string {
-    $r=neonAuthRequest('/sign-up/email',['name'=>trim($name),'email'=>strtolower(trim($email)),'password'=>$password]);
+    $r=neonAuthRequest('/sign-up/email',['name'=>trim($name),'email'=>strtolower(trim($email)),'password'=>$password,'callbackURL'=>$origin . '/index.php']);
     if(!$r['ok'])return (string)($r['error']??'Registration failed.');
     $user=$r['data']['user']??null;
     if(!is_array($user)){ $s=neonAuthRequest('/get-session'); $user=$s['data']['user']??null; }
