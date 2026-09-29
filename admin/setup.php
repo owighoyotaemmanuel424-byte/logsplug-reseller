@@ -43,6 +43,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } else {
         try {
             $pdo->beginTransaction();
+            $pdo->exec('SELECT pg_advisory_xact_lock(91827364)');
 
             // Re-check inside the transaction to reduce first-setup races.
             $check = getSetting('admin_password_hash');
