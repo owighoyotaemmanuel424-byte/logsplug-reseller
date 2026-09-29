@@ -153,10 +153,45 @@ function localUserFromNeon(array $user): ?array {
     }
 }
 function getCurrentUser(): ?array {
+    // Prefer the durable signed application session. PHP's local session
+    // storage on Render is ephemeral, so the signed cookie is the source of
+    // truth for this app request.
+    $localId = isset($_SESSION['user_id']) && is_numeric($_SESSION['user_id'])
+        ? (int)$_SESSION['user_id']
+        : cookieUserId();
+
+    if ($localId !== null && $localId > 0) {
+        $pdo = getDb();
+        if ($pdo) {
+            $st = $pdo->prepare('SELECT id,email,name,created_at FROM public.users WHERE id=? LIMIT 1');
+            $st->execute([$localId]);
+            $row = $st->fetch();
+            if ($row) {
+                $_SESSION['user_id'] = (int)$row['id'];
+                return [
+                    'id'=>(int)$row['id'],
+                    'email'=>$row['email'],
+                    'name'=>$row['name'],
+                    'created_at'=>$row['created_at']
+                ];
+            }
+        }
+        // Never leave a stale signed identity behind.
+        clearAuthCookie();
+        unset($_SESSION['user_id']);
+    }
+
+    // Bootstrap/recover the local session from Neon Auth when a valid Neon
+    // session cookie is present but the local signed session is missing.
     $r=neonAuthRequest('/get-session');
     if(!$r['ok']||empty($r['data']['user'])) return null;
+
     $local=localUserFromNeon((array)$r['data']['user']);
-    if($local){$_SESSION['user_id']=$local['id'];return $local;}
+    if($local){
+        $_SESSION['user_id']=$local['id'];
+        setAuthCookie((int)$local['id']);
+        return $local;
+    }
     return null;
 }
 function getWalletBalance(int $userId): float {
@@ -191,7 +226,11 @@ function loginUser(string $email,string $password): bool {
     if(!is_array($user)){ $s=neonAuthRequest('/get-session'); $user=$s['data']['user']??null; }
     $local=is_array($user)?localUserFromNeon($user):null;
     if(!$local)return false;
-    session_regenerate_id(true);$_SESSION['user_id']=$local['id'];session_write_close();return true;
+    session_regenerate_id(true);
+    $_SESSION['user_id']=$local['id'];
+    setAuthCookie((int)$local['id']);
+    session_write_close();
+    return true;
 }
 function registerUser(string $email,string $password,string $name): ?string {
     $r=neonAuthRequest('/sign-up/email',['name'=>trim($name),'email'=>strtolower(trim($email)),'password'=>$password,'callbackURL'=>appOrigin() . '/index.php']);
@@ -200,7 +239,11 @@ function registerUser(string $email,string $password,string $name): ?string {
     if(!is_array($user)){ $s=neonAuthRequest('/get-session'); $user=$s['data']['user']??null; }
     $local=is_array($user)?localUserFromNeon($user):null;
     if(!$local)return 'Account created, but the account profile could not be initialized.';
-    session_regenerate_id(true);$_SESSION['user_id']=$local['id'];session_write_close();return null;
+    session_regenerate_id(true);
+    $_SESSION['user_id']=$local['id'];
+    setAuthCookie((int)$local['id']);
+    session_write_close();
+    return null;
 }
 function logoutUser(): void {
     neonAuthRequest('/sign-out');
