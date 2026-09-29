@@ -13,6 +13,8 @@ RUN apt-get update \
 
 WORKDIR /var/www/html
 COPY . /var/www/html/
+COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
 RUN mkdir -p /var/www/html/data \
     && chown -R www-data:www-data /var/www/html \
@@ -20,3 +22,5 @@ RUN mkdir -p /var/www/html/data \
     && chmod 775 /var/www/html/data
 
 EXPOSE 10000
+
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
