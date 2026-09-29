@@ -8,7 +8,7 @@ if (getDb() === null) {
 $businessName = (function_exists('getSetting') && getSetting('business_name')) ? getSetting('business_name') : (defined('BUSINESS_NAME') ? BUSINESS_NAME : (defined('SITE_TITLE') ? SITE_TITLE : 'Store'));
 $logoUrl = (function_exists('getSetting') && getSetting('logo_url') !== null) ? trim((string)getSetting('logo_url')) : (defined('LOGO_URL') ? trim(LOGO_URL) : '');
 $currentUser = getCurrentUser();
-$dbPath = defined('DB_PATH') ? DB_PATH : '';
+$databaseConfigured = defined('DATABASE_URL') && trim((string) DATABASE_URL) !== '';
 $error = '';
 $success = false;
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
