@@ -16,7 +16,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($email === '' || $pass === '') {
         $error = 'Email and password required.';
     } elseif (loginUser($email, $pass)) {
-        $redirect = $_GET['redirect'] ?? 'index.php';
+        $redirect = $_GET['redirect'] ?? 'wallet.php';
+        // Only allow local relative destinations.
+        if (!is_string($redirect) || $redirect === '' || str_starts_with($redirect, '//') || preg_match('#^https?://#i', $redirect)) {
+            $redirect = 'wallet.php';
+        }
         header('Location: ' . $redirect);
         exit;
     } else {
