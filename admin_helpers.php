@@ -14,7 +14,7 @@ function isAdminRole(): bool { return isset($_SESSION['admin_role']) && $_SESSIO
 
 function isAdminSetup(): bool {
     $hash = function_exists('getSetting') ? getSetting('admin_password_hash') : null;
-    return $hash !== null && $hash !== '';
+    return $hash === null || $hash === '';
 }
 
 function adminLogin(string $password): bool {
