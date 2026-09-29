@@ -199,6 +199,34 @@ require __DIR__ . '/includes/head.php';
 require __DIR__ . '/includes/header.php';
 ?>
 
+    <section class="landing-hero" aria-labelledby="landing-title">
+        <div class="landing-hero__content">
+            <span class="landing-eyebrow">FAST • SECURE • SIMPLE</span>
+            <h1 id="landing-title">Your digital services, <span>made simple.</span></h1>
+            <p>Buy reliable digital services in seconds, track every order, and manage your wallet from one clean dashboard.</p>
+            <div class="landing-actions">
+                <a href="#shop" class="btn btn-primary btn-lg">Browse services</a>
+                <?php if ($dbPath !== '' && !$currentUser): ?><a href="register.php" class="btn btn-secondary btn-lg">Create account</a><?php endif; ?>
+            </div>
+            <div class="landing-trust"><span>✓ Instant order processing</span><span>✓ Wallet-based checkout</span><span>✓ Order history</span></div>
+        </div>
+        <div class="landing-hero__visual" aria-hidden="true">
+            <div class="hero-orb hero-orb--one"></div><div class="hero-orb hero-orb--two"></div>
+            <div class="hero-panel">
+                <div class="hero-panel__top"><span>Wallet</span><span class="hero-dot"></span></div>
+                <strong>₦24,850.00</strong><div class="hero-panel__bar"><i></i></div>
+                <div class="hero-panel__row"><span>Services</span><b>Available</b></div>
+                <div class="hero-panel__row"><span>Orders</span><b>Track anytime</b></div>
+            </div>
+        </div>
+    </section>
+    <section class="landing-features" aria-label="Benefits">
+        <article><span class="feature-icon">⚡</span><h2>Quick delivery</h2><p>Place orders with a simple checkout flow.</p></article>
+        <article><span class="feature-icon">◈</span><h2>Clear pricing</h2><p>See your price before you confirm an order.</p></article>
+        <article><span class="feature-icon">◎</span><h2>Easy tracking</h2><p>Keep your orders and wallet activity in one place.</p></article>
+    </section>
+    <section id="shop" class="landing-shop-heading"><div><span class="landing-section-kicker">OUR SERVICES</span><h2>Choose what you need</h2><p>Search by service or browse categories below.</p></div></section>
+
     <?php if ($error): ?>
         <div class="alert alert-error"><p><?php echo htmlspecialchars($error); ?></p></div>
     <?php endif; ?>
@@ -212,7 +240,7 @@ require __DIR__ . '/includes/header.php';
         </div>
     <?php endif; ?>
 
-    <h1 class="page-title">Products</h1>
+    <div class="sr-only">Products</div>
     <?php if (empty($products)): ?>
         <div class="card">
             <p class="text-muted mb-0">No products available.</p>
