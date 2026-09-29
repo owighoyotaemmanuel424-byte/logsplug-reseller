@@ -1,0 +1,17 @@
+# Runtime secrets/config
+.env
+.env.*
+!.env.example
+config.local.php
+
+# Runtime database and uploaded files
+data/
+uploads/
+*.sqlite
+*.sqlite3
+
+# OS/editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
