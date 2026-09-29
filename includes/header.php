@@ -13,26 +13,20 @@ $dbPath = isset($dbPath) ? $dbPath : (defined('DB_PATH') ? DB_PATH : '');
             <?php endif; ?>
             <span class="site-title"><?php echo htmlspecialchars($businessName); ?></span>
         </a>
-        <?php if ($dbPath !== ''): ?>
         <button type="button" class="site-nav-toggle" aria-label="Toggle menu" aria-expanded="false" aria-controls="site-nav">
-            <span class="site-nav-toggle__bar"></span>
-            <span class="site-nav-toggle__bar"></span>
-            <span class="site-nav-toggle__bar"></span>
+            <span class="site-nav-toggle__bar"></span><span class="site-nav-toggle__bar"></span><span class="site-nav-toggle__bar"></span>
         </button>
         <nav class="site-nav" id="site-nav" aria-label="Main">
-            <?php if ($currentUser): ?>
-                <?php
-                $headerBalance = (function_exists('getWalletBalance')) ? getWalletBalance((int)$currentUser['id']) : 0;
-                ?>
-                <a href="wallet.php" class="nav-wallet" title="My Wallet">₦<?php echo number_format($headerBalance, 2); ?></a>
-                <a href="my_orders.php">My Orders</a>
-                <a href="profile.php">Profile</a>
-                <a href="logout.php">Logout</a>
-            <?php else: ?>
-                <a href="login.php">Login</a>
-                <a href="register.php">Register</a>
-            <?php endif; ?>
-        </nav>
+            <a href="index.php">Home</a><a href="index.php#shop">Services</a>
+            <?php if ($dbPath !== ''): ?>
+                <?php if ($currentUser): ?>
+                    <?php $headerBalance = function_exists('getWalletBalance') ? getWalletBalance((int)$currentUser['id']) : 0; ?>
+                    <a href="wallet.php" class="nav-wallet">₦<?php echo number_format($headerBalance, 2); ?></a>
+                    <a href="my_orders.php">My Orders</a><a href="profile.php">Profile</a><a href="logout.php">Logout</a>
+                <?php else: ?>
+                    <a href="login.php">Login</a><a href="register.php" class="nav-cta">Create account</a>
+                <?php endif; ?>
+            <?php endif; ?>        </nav>
         <script>(function(){var t=document.querySelector('.site-nav-toggle');var n=document.getElementById('site-nav');if(t&&n){t.addEventListener('click',function(){var o=n.classList.toggle('site-nav--open');t.setAttribute('aria-expanded',o);});document.addEventListener('click',function(e){if(!t.contains(e.target)&&!n.contains(e.target)){n.classList.remove('site-nav--open');t.setAttribute('aria-expanded','false');}});}})();</script>
         <?php endif; ?>
     </div>
