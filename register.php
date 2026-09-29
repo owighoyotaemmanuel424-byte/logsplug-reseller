@@ -22,7 +22,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } else {
         $err = registerUser($email, $password, $name);
         if ($err === null) {
-            header('Location: index.php');
+            header('Location: wallet.php');
             exit;
         } else {
             $error = $err;
