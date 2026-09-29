@@ -113,56 +113,40 @@ function localUserFromNeon(array $user): ?array {
 
     $email=strtolower(trim((string)$user['email']));
     $name=trim((string)($user['name']??$email));
-    $authUserId=trim((string)($user['id']??''));
 
     try {
-        // The Neon Auth identity is authoritative. The public.users row is only
-        // the application projection used by wallets/orders.
-        if ($authUserId !== '') {
-            $st=$pdo->prepare('SELECT id,email,name,created_at FROM public.users WHERE auth_user_id=? LIMIT 1');
-            try {
-                $st->execute([$authUserId]);
-                $row=$st->fetch();
-                if($row) {
-                    $pdo->prepare('INSERT INTO wallets(user_id,balance) VALUES(?,0) ON CONFLICT(user_id) DO NOTHING')->execute([(int)$row['id']]);
-                    return ['id'=>(int)$row['id'],'email'=>$row['email'],'name'=>$row['name'],'created_at'=>$row['created_at']];
-                }
-            } catch(Throwable $ignored) {
-                // Older databases may not have auth_user_id yet; continue by email.
-            }
-        }
-
+        // Neon Auth is authoritative for identity. public.users is the
+        // application's local projection keyed by normalized email.
         $st=$pdo->prepare('SELECT id,email,name,created_at FROM public.users WHERE LOWER(BTRIM(email))=LOWER(BTRIM(?)) LIMIT 1');
         $st->execute([$email]);
         $row=$st->fetch();
 
         if(!$row) {
-            $st=$pdo->prepare('INSERT INTO public.users(email,password_hash,name,auth_user_id)
-                VALUES(?,?,?,NULLIF(?,''))
+            $st=$pdo->prepare('INSERT INTO public.users(email,password_hash,name)
+                VALUES(?,?,?)
                 ON CONFLICT(email) DO UPDATE SET name=EXCLUDED.name
                 RETURNING id,email,name,created_at');
-            try {
-                $st->execute([$email,password_hash(bin2hex(random_bytes(32)),PASSWORD_DEFAULT),$name,$authUserId]);
-            } catch(Throwable $e) {
-                // If auth_user_id is not present on an older schema, fall back
-                // to the legacy column set instead of failing the whole signup.
-                $st=$pdo->prepare('INSERT INTO public.users(email,password_hash,name)
-                    VALUES(?,?,?)
-                    ON CONFLICT(email) DO UPDATE SET name=EXCLUDED.name
-                    RETURNING id,email,name,created_at');
-                $st->execute([$email,password_hash(bin2hex(random_bytes(32)),PASSWORD_DEFAULT),$name]);
-            }
+            $st->execute([
+                $email,
+                password_hash(bin2hex(random_bytes(32)),PASSWORD_DEFAULT),
+                $name
+            ]);
             $row=$st->fetch();
-        } else if($authUserId !== '') {
-            try {
-                $st=$pdo->prepare('UPDATE public.users SET auth_user_id=? WHERE id=?');
-                $st->execute([$authUserId,(int)$row['id']]);
-            } catch(Throwable $ignored) {}
+        } else {
+            $st=$pdo->prepare('UPDATE public.users SET name=? WHERE id=?');
+            $st->execute([$name,(int)$row['id']]);
+            $row['name']=$name;
         }
 
         $id=(int)$row['id'];
         $pdo->prepare('INSERT INTO wallets(user_id,balance) VALUES(?,0) ON CONFLICT(user_id) DO NOTHING')->execute([$id]);
-        return ['id'=>$id,'email'=>$row['email'],'name'=>$row['name'],'created_at'=>$row['created_at']];
+
+        return [
+            'id'=>$id,
+            'email'=>$row['email'],
+            'name'=>$row['name'],
+            'created_at'=>$row['created_at']
+        ];
     } catch(Throwable $e) {
         error_log('Neon user mapping failed: '.$e->getMessage());
         return null;
