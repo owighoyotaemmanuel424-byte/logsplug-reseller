@@ -108,21 +108,65 @@ function neonAuthRequest(string $path, ?array $body = null): array {
     return ['ok'=>$status>=200&&$status<300,'data'=>$data,'error'=>is_array($data)?($data['message']??'Authentication failed.'):'Authentication failed.'];
 }
 function localUserFromNeon(array $user): ?array {
-    $pdo=getDb(); if(!$pdo||empty($user['email'])) return null;
+    $pdo=getDb();
+    if(!$pdo||empty($user['email'])) return null;
+
     $email=strtolower(trim((string)$user['email']));
     $name=trim((string)($user['name']??$email));
-    $st=$pdo->prepare('SELECT id,email,name,created_at FROM public.users WHERE LOWER(BTRIM(email))=LOWER(BTRIM(?)) LIMIT 1');
-    $st->execute([$email]); $row=$st->fetch();
-    if($row) return ['id'=>(int)$row['id'],'email'=>$row['email'],'name'=>$row['name'],'created_at'=>$row['created_at']];
-    try{
-        $pdo->beginTransaction();
-        $st=$pdo->prepare('INSERT INTO public.users(email,password_hash,name) VALUES(?,?,?) RETURNING id,created_at');
-        $st->execute([$email,password_hash(bin2hex(random_bytes(32)),PASSWORD_DEFAULT),$name]);
-        $created=$st->fetch(); $id=(int)$created['id'];
+    $authUserId=trim((string)($user['id']??''));
+
+    try {
+        // The Neon Auth identity is authoritative. The public.users row is only
+        // the application projection used by wallets/orders.
+        if ($authUserId !== '') {
+            $st=$pdo->prepare('SELECT id,email,name,created_at FROM public.users WHERE auth_user_id=? LIMIT 1');
+            try {
+                $st->execute([$authUserId]);
+                $row=$st->fetch();
+                if($row) {
+                    $pdo->prepare('INSERT INTO wallets(user_id,balance) VALUES(?,0) ON CONFLICT(user_id) DO NOTHING')->execute([(int)$row['id']]);
+                    return ['id'=>(int)$row['id'],'email'=>$row['email'],'name'=>$row['name'],'created_at'=>$row['created_at']];
+                }
+            } catch(Throwable $ignored) {
+                // Older databases may not have auth_user_id yet; continue by email.
+            }
+        }
+
+        $st=$pdo->prepare('SELECT id,email,name,created_at FROM public.users WHERE LOWER(BTRIM(email))=LOWER(BTRIM(?)) LIMIT 1');
+        $st->execute([$email]);
+        $row=$st->fetch();
+
+        if(!$row) {
+            $st=$pdo->prepare('INSERT INTO public.users(email,password_hash,name,auth_user_id)
+                VALUES(?,?,?,NULLIF(?,''))
+                ON CONFLICT(email) DO UPDATE SET name=EXCLUDED.name
+                RETURNING id,email,name,created_at');
+            try {
+                $st->execute([$email,password_hash(bin2hex(random_bytes(32)),PASSWORD_DEFAULT),$name,$authUserId]);
+            } catch(Throwable $e) {
+                // If auth_user_id is not present on an older schema, fall back
+                // to the legacy column set instead of failing the whole signup.
+                $st=$pdo->prepare('INSERT INTO public.users(email,password_hash,name)
+                    VALUES(?,?,?)
+                    ON CONFLICT(email) DO UPDATE SET name=EXCLUDED.name
+                    RETURNING id,email,name,created_at');
+                $st->execute([$email,password_hash(bin2hex(random_bytes(32)),PASSWORD_DEFAULT),$name]);
+            }
+            $row=$st->fetch();
+        } else if($authUserId !== '') {
+            try {
+                $st=$pdo->prepare('UPDATE public.users SET auth_user_id=? WHERE id=?');
+                $st->execute([$authUserId,(int)$row['id']]);
+            } catch(Throwable $ignored) {}
+        }
+
+        $id=(int)$row['id'];
         $pdo->prepare('INSERT INTO wallets(user_id,balance) VALUES(?,0) ON CONFLICT(user_id) DO NOTHING')->execute([$id]);
-        $pdo->commit();
-        return ['id'=>$id,'email'=>$email,'name'=>$name,'created_at'=>$created['created_at']];
-    }catch(Throwable $e){if($pdo->inTransaction())$pdo->rollBack();error_log('Neon user mapping failed: '.$e->getMessage());return null;}
+        return ['id'=>$id,'email'=>$row['email'],'name'=>$row['name'],'created_at'=>$row['created_at']];
+    } catch(Throwable $e) {
+        error_log('Neon user mapping failed: '.$e->getMessage());
+        return null;
+    }
 }
 function getCurrentUser(): ?array {
     $r=neonAuthRequest('/get-session');
