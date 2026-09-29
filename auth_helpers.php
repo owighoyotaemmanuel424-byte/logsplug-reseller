@@ -41,12 +41,20 @@ function requireLogin(): void {
     if(getCurrentUser()===null){header('Location: login.php?redirect='.urlencode($_SERVER['REQUEST_URI']??'index.php'));exit;}
 }
 function loginUser(string $email,string $password): bool {
-    $pdo=getDb(); if(!$pdo)return false; $st=$pdo->prepare('SELECT id,password_hash FROM users WHERE email=?'); $st->execute([$email]); $row=$st->fetch();
-    if(!$row||!password_verify($password,$row['password_hash']))return false; session_regenerate_id(true); $_SESSION['user_id']=(int)$row['id']; return true;
+    $pdo = getDb();
+    if (!$pdo) return false;
+    $email = strtolower(trim($email));
+    $st = $pdo->prepare('SELECT id,password_hash FROM users WHERE LOWER(email)=LOWER(?) LIMIT 1');
+    $st->execute([$email]);
+    $row = $st->fetch();
+    if (!$row || !password_verify($password, (string) $row['password_hash'])) return false;
+    session_regenerate_id(true);
+    $_SESSION['user_id'] = (int) $row['id'];
+    return true;
 }
 function registerUser(string $email,string $password,string $name): ?string {
     $pdo=getDb(); if(!$pdo)return 'Database not configured.';
-    try{$pdo->beginTransaction();$st=$pdo->prepare('INSERT INTO users(email,password_hash,name) VALUES(?,?,?) RETURNING id');$st->execute([$email,password_hash($password,PASSWORD_DEFAULT),$name]);$id=(int)$st->fetchColumn();$pdo->prepare('INSERT INTO wallets(user_id,balance) VALUES(?,0)')->execute([$id]);$pdo->commit();return null;}
+    try{$pdo->beginTransaction();$st=$pdo->prepare('INSERT INTO users(email,password_hash,name) VALUES(?,?,?) RETURNING id');$st->execute([$email,password_hash($password,PASSWORD_DEFAULT),$name]);$id=(int)$st->fetchColumn();$pdo->prepare('INSERT INTO wallets(user_id,balance) VALUES(?,0)')->execute([$id]);$pdo->commit();session_regenerate_id(true);$_SESSION['user_id']=$id;return null;}
     catch(PDOException $e){if($pdo->inTransaction())$pdo->rollBack();if($e->getCode()==='23505')return 'Email already registered.';error_log('Registration failed: '.$e->getMessage());return 'Registration failed.';}
 }
 function logoutUser(): void {
