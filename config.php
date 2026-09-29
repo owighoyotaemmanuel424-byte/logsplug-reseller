@@ -9,6 +9,7 @@ define('LOGO_URL', getenv('LOGO_URL') ?: '');
 define('DATABASE_URL', trim((string) (getenv('DATABASE_URL') ?: '')));
 define('AUTH_SESSION_SECRET', trim((string) (getenv('AUTH_SESSION_SECRET') ?: '')));
 define('NEON_AUTH_URL', rtrim(trim((string) (getenv('NEON_AUTH_URL') ?: '')), '/'));
+define('APP_URL', rtrim(trim((string) (getenv('APP_URL') ?: 'https://logsplug-reseller-php.onrender.com')), '/'));
 define('SPRINTPAY_ENABLED', filter_var(getenv('SPRINTPAY_ENABLED') ?: 'false', FILTER_VALIDATE_BOOLEAN));
 define('SPRINTPAY_MERCHANT_ID', getenv('SPRINTPAY_MERCHANT_ID') ?: '');
 define('SPRINTPAY_CALLBACK_URL', getenv('SPRINTPAY_CALLBACK_URL') ?: '');
