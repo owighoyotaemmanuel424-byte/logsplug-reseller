@@ -3,7 +3,7 @@ $layout = isset($layout) ? $layout : 'default';
 $businessName = isset($businessName) ? $businessName : (defined('BUSINESS_NAME') ? BUSINESS_NAME : 'Store');
 $logoUrl = isset($logoUrl) ? $logoUrl : (defined('LOGO_URL') ? trim(LOGO_URL) : '');
 $currentUser = isset($currentUser) ? $currentUser : (function_exists('getCurrentUser') ? getCurrentUser() : null);
-$dbPath = isset($dbPath) ? $dbPath : (defined('DB_PATH') ? DB_PATH : '');
+$databaseConfigured = defined('DATABASE_URL') && trim((string) DATABASE_URL) !== '';
 ?>
 <header class="site-header">
     <div class="site-header-inner">
@@ -18,7 +18,7 @@ $dbPath = isset($dbPath) ? $dbPath : (defined('DB_PATH') ? DB_PATH : '');
         </button>
         <nav class="site-nav" id="site-nav" aria-label="Main">
             <a href="index.php">Home</a><a href="index.php#shop">Services</a>
-            <?php if ($dbPath !== ''): ?>
+            <?php if ($databaseConfigured): ?>
                 <?php if ($currentUser): ?>
                     <?php $headerBalance = function_exists('getWalletBalance') ? getWalletBalance((int)$currentUser['id']) : 0; ?>
                     <a href="wallet.php" class="nav-wallet">₦<?php echo number_format($headerBalance, 2); ?></a>
