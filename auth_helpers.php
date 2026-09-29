@@ -181,8 +181,18 @@ function getCurrentUser(): ?array {
         unset($_SESSION['user_id']);
     }
 
-    // Bootstrap/recover the local session from Neon Auth when a valid Neon
-    // session cookie is present but the local signed session is missing.
+    // Do not call Neon Auth on anonymous page views. That remote request can
+    // add noticeable latency to every landing/public page. Only recover from
+    // Neon when the browser actually has a Neon session cookie.
+    $hasNeonSession = false;
+    foreach (array_keys($_COOKIE) as $cookieName) {
+        if (str_contains((string)$cookieName, 'session_token')) {
+            $hasNeonSession = true;
+            break;
+        }
+    }
+    if (!$hasNeonSession) return null;
+
     $r=neonAuthRequest('/get-session');
     if(!$r['ok']||empty($r['data']['user'])) return null;
 
