@@ -22,11 +22,57 @@ function getDb(): ?PDO
 {
     return function_exists('createDatabaseConnection') ? createDatabaseConnection() : null;
 }
+
+function authSecret(): string
+{
+    if (defined('AUTH_SESSION_SECRET') && AUTH_SESSION_SECRET !== '') return AUTH_SESSION_SECRET;
+    return hash('sha256', (string) (defined('DATABASE_URL') ? DATABASE_URL : 'logsplug-auth'));
+}
+function b64e(string $v): string { return rtrim(strtr(base64_encode($v), '+/', '-_'), '='); }
+function b64d(string $v): string|false {
+    $r = strlen($v) % 4;
+    if ($r) $v .= str_repeat('=', 4 - $r);
+    return base64_decode(strtr($v, '-_', '+/'), true);
+}
+function setAuthCookie(int $userId): void {
+    $encoded = b64e($userId . ':' . (time() + 604800));
+    $sig = hash_hmac('sha256', $encoded, authSecret());
+    $secure = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+        || (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && strtolower((string)$_SERVER['HTTP_X_FORWARDED_PROTO']) === 'https');
+    setcookie('logsplug_auth', $encoded . '.' . $sig, [
+        'expires' => time() + 604800, 'path' => '/', 'secure' => $secure,
+        'httponly' => true, 'samesite' => 'Lax'
+    ]);
+}
+function clearAuthCookie(): void {
+    $secure = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+        || (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && strtolower((string)$_SERVER['HTTP_X_FORWARDED_PROTO']) === 'https');
+    setcookie('logsplug_auth', '', [
+        'expires' => time() - 3600, 'path' => '/', 'secure' => $secure,
+        'httponly' => true, 'samesite' => 'Lax'
+    ]);
+}
+function cookieUserId(): ?int {
+    $raw = (string)($_COOKIE['logsplug_auth'] ?? '');
+    if ($raw === '' || !str_contains($raw, '.')) return null;
+    [$encoded, $sig] = explode('.', $raw, 2);
+    if (!hash_equals(hash_hmac('sha256', $encoded, authSecret()), $sig)) return null;
+    $decoded = b64d($encoded);
+    if ($decoded === false || !str_contains($decoded, ':')) return null;
+    [$id, $expires] = explode(':', $decoded, 2);
+    if (!ctype_digit($id) || !ctype_digit($expires) || (int)$expires < time()) return null;
+    return (int)$id;
+}
+
 function getCurrentUser(): ?array {
-    if (empty($_SESSION['user_id'])) return null;
+    $userId = !empty($_SESSION['user_id']) ? (int)$_SESSION['user_id'] : cookieUserId();
+    if (!$userId) return null;
     $pdo=getDb(); if(!$pdo)return null;
-    $st=$pdo->prepare('SELECT id,email,name,created_at FROM users WHERE id=?'); $st->execute([(int)$_SESSION['user_id']]);
-    $row=$st->fetch(); return $row?:null;
+    $st=$pdo->prepare('SELECT id,email,name,created_at FROM public.users WHERE id=? LIMIT 1'); $st->execute([$userId]);
+    $row=$st->fetch();
+    if (!$row) { unset($_SESSION['user_id']); clearAuthCookie(); return null; }
+    if (empty($_SESSION['user_id'])) $_SESSION['user_id']=(int)$row['id'];
+    return $row;
 }
 function getWalletBalance(int $userId): float {
     $pdo=getDb(); if(!$pdo)return 0.0;
@@ -60,7 +106,7 @@ function loginUser(string $email,string $password): bool {
         return false;
     }
     $email = strtolower(trim($email));
-    $st = $pdo->prepare('SELECT id,password_hash FROM users WHERE LOWER(email)=LOWER(?) LIMIT 1');
+    $st = $pdo->prepare('SELECT id,password_hash FROM public.users WHERE LOWER(BTRIM(email))=LOWER(BTRIM(?)) LIMIT 1');
     $st->execute([$email]);
     $row = $st->fetch();
     if (!$row) {
@@ -71,8 +117,9 @@ function loginUser(string $email,string $password): bool {
         error_log('Login failed: password verification failed.');
         return false;
     }
-    session_regenerate_id(false);
+    session_regenerate_id(true);
     $_SESSION['user_id'] = (int) $row['id'];
+    setAuthCookie((int) $row['id']);
     session_write_close();
     return true;
 }
@@ -82,13 +129,14 @@ function registerUser(string $email,string $password,string $name): ?string {
     $name = trim($name);
     try {
         $pdo->beginTransaction();
-        $st=$pdo->prepare('INSERT INTO users(email,password_hash,name) VALUES(?,?,?) RETURNING id');
+        $st=$pdo->prepare('INSERT INTO public.users(email,password_hash,name) VALUES(?,?,?) RETURNING id');
         $st->execute([$email,password_hash($password,PASSWORD_DEFAULT),$name]);
         $id=(int)$st->fetchColumn();
-        $pdo->prepare('INSERT INTO wallets(user_id,balance) VALUES(?,0)')->execute([$id]);
+        $pdo->prepare('INSERT INTO public.wallets(user_id,balance) VALUES(?,0)')->execute([$id]);
         $pdo->commit();
-        session_regenerate_id(false);
+        session_regenerate_id(true);
         $_SESSION['user_id']=$id;
+        setAuthCookie($id);
         session_write_close();
         error_log('Customer registration completed successfully.');
         return null;
@@ -100,7 +148,8 @@ function registerUser(string $email,string $password,string $name): ?string {
     }
 }
 function logoutUser(): void {
-    $_SESSION=[]; if(ini_get('session.use_cookies')){$p=session_get_cookie_params();setcookie(session_name(),'',time()-42000,$p['path'],$p['domain'],$p['secure'],$p['httponly']);} session_destroy();
+    $_SESSION=[];
+    clearAuthCookie(); if(ini_get('session.use_cookies')){$p=session_get_cookie_params();setcookie(session_name(),'',time()-42000,$p['path'],$p['domain'],$p['secure'],$p['httponly']);} session_destroy();
 }
 function getSetting(string $key): ?string {
     $pdo=getDb(); if(!$pdo)return null; $st=$pdo->prepare('SELECT value FROM settings WHERE key=?');$st->execute([$key]);$row=$st->fetch();
