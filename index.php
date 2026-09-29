@@ -20,11 +20,9 @@ foreach ($requiredIncludes as $file) {
         die('Missing file: includes/' . $file . '. Upload the full reseller-site folder including the includes/ directory (head.php, header.php, footer.php). Path checked: ' . $includesDir . '/' . $file);
     }
 }
-$dbPath = defined('DB_PATH') ? DB_PATH : '';
-if ($dbPath !== '') {
-    require_once __DIR__ . '/init_db.php';
-    require_once __DIR__ . '/auth_helpers.php';
-}
+$databaseConfigured = defined('DATABASE_URL') && trim((string) DATABASE_URL) !== '';
+require_once __DIR__ . '/init_db.php';
+require_once __DIR__ . '/auth_helpers.php';
 $currentUser = function_exists('getCurrentUser') ? getCurrentUser() : null;
 
 $apiKey = defined('RESELLER_API_KEY') ? RESELLER_API_KEY : '';
@@ -79,7 +77,7 @@ if ($apiKey && $baseUrl) {
 }
 
 // Handle order form submit (only authenticated users when DB/auth is enabled)
-$canOrder = ($dbPath === '' || $currentUser !== null);
+$canOrder = ($databaseConfigured === '' || $currentUser !== null);
 $orderSuccessRedirect = false;
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['product_id'])) {
     if (!$canOrder) {
@@ -109,7 +107,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['product_id'])) {
     ];
 
     // When user is logged in, check wallet balance before calling reseller API
-    if ($currentUser && $dbPath !== '' && function_exists('getWalletBalance')) {
+    if ($currentUser && $databaseConfigured !== '' && function_exists('getWalletBalance')) {
         $userBalance = getWalletBalance((int) $currentUser['id']);
         if ($userBalance < $orderTotal) {
             $orderMessage = 'Insufficient balance. You have ₦' . number_format($userBalance, 2) . '. This order costs ₦' . number_format($orderTotal, 2) . '. Please fund your wallet (Wallet page).';
@@ -184,11 +182,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['product_id'])) {
         }
     }
 
-    if ($orderSuccessRedirect && $dbPath !== '' && $currentUser) {
+    if ($orderSuccessRedirect && $databaseConfigured !== '' && $currentUser) {
         header('Location: my_orders.php?ordered=1');
         exit;
     }
-    if ($orderSuccessRedirect && ($dbPath === '' || !$currentUser)) {
+    if ($orderSuccessRedirect && ($databaseConfigured === '' || !$currentUser)) {
         header('Location: index.php?ordered=1');
         exit;
     }
@@ -206,7 +204,7 @@ require __DIR__ . '/includes/header.php';
             <p>Buy reliable digital services in seconds, track every order, and manage your wallet from one clean dashboard.</p>
             <div class="landing-actions">
                 <a href="#shop" class="btn btn-primary btn-lg">Browse services</a>
-                <?php if ($dbPath !== '' && !$currentUser): ?><a href="register.php" class="btn btn-secondary btn-lg">Create account</a><?php endif; ?>
+                <?php if ($databaseConfigured !== '' && !$currentUser): ?><a href="register.php" class="btn btn-secondary btn-lg">Create account</a><?php endif; ?>
             </div>
             <div class="landing-trust"><span>✓ Instant order processing</span><span>✓ Wallet-based checkout</span><span>✓ Order history</span></div>
         </div>
@@ -234,7 +232,7 @@ require __DIR__ . '/includes/header.php';
         <div class="alert <?php echo (strpos($orderMessage, 'failed') !== false || strpos($orderMessage, 'Insufficient') !== false) ? 'alert-error' : 'alert-success'; ?>"><p><?php echo htmlspecialchars($orderMessage); ?><?php if (strpos($orderMessage, 'success') !== false): ?> <a href="my_orders.php">View My Orders</a><?php endif; ?></p></div>
     <?php endif; ?>
 
-    <?php if ($dbPath !== '' && !$currentUser): ?>
+    <?php if ($databaseConfigured !== '' && !$currentUser): ?>
         <div class="reseller-auth-prompt">
             <a href="login.php">Login</a> or <a href="register.php">Register</a> to manage your wallet and orders.
         </div>
