@@ -6,12 +6,8 @@ if (isAdminLoggedIn()) {
     exit;
 }
 
-$dbPath = defined('DB_PATH') ? DB_PATH : '';
-if ($dbPath === '' || !function_exists('getDb') || getDb() === null) {
-    $noDb = true;
-} else {
-    $noDb = false;
-}
+$pdo = function_exists('getDb') ? getDb() : null;
+$noDb = !defined('DATABASE_URL') || trim((string) DATABASE_URL) === '' || $pdo === null;
 
 $error = '';
 $setup = !$noDb && !isAdminSetup();
@@ -19,6 +15,7 @@ $setup = !$noDb && !isAdminSetup();
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$noDb) {
     $password = $_POST['password'] ?? '';
     $confirm = $_POST['password_confirm'] ?? '';
+
     if ($setup) {
         if (strlen($password) < 8) {
             $error = 'Password must be at least 8 characters.';
@@ -26,11 +23,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$noDb) {
             $error = 'Passwords do not match.';
         } else {
             $hash = password_hash($password, PASSWORD_DEFAULT);
-            setSetting('admin_password_hash', $hash);
-            $_SESSION['admin_logged_in'] = true;
-            $_SESSION['admin_role'] = 'admin';
-            header('Location: index.php');
-            exit;
+            if (setSetting('admin_password_hash', $hash)) {
+                $_SESSION['admin_logged_in'] = true;
+                $_SESSION['admin_role'] = 'admin';
+                header('Location: index.php');
+                exit;
+            }
+            $error = 'Unable to save admin password. Check the database connection.';
         }
     } else {
         if (adminLogin($password)) {
@@ -57,7 +56,7 @@ $adminPageTitle = $setup ? 'Set admin password' : 'Admin login';
     <div class="auth-card">
         <h1 class="page-title"><?php echo $noDb ? 'Admin' : ($setup ? 'Set admin password' : 'Admin login'); ?></h1>
         <?php if ($noDb): ?>
-            <div class="alert alert-error"><p>Database not configured. Set <strong>DB_PATH</strong> in config.php to use the admin panel.</p></div>
+            <div class="alert alert-error"><p>Database is not configured or cannot be reached. Set the <strong>DATABASE_URL</strong> environment variable in Render.</p></div>
         <?php elseif ($error): ?>
             <div class="alert alert-error"><p><?php echo htmlspecialchars($error); ?></p></div>
         <?php endif; ?>
