@@ -83,6 +83,26 @@ try {
         foreach ($statements as $sql) {
             $pdo->exec($sql);
         }
+
+        // Repair/upgrade older schemas in place. Neon Auth owns its own auth
+        // tables; these public tables are the application's customer/wallet
+        // projection and must always have the columns the app expects.
+        $schemaMigrations = [
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS email TEXT",
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash TEXT",
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS name TEXT",
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP",
+            "ALTER TABLE wallets ADD COLUMN IF NOT EXISTS balance NUMERIC(18,2) NOT NULL DEFAULT 0",
+            "ALTER TABLE wallets ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP",
+        ];
+
+        foreach ($schemaMigrations as $sql) {
+            try {
+                $pdo->exec($sql);
+            } catch (Throwable $migrationError) {
+                error_log('Schema migration warning: ' . $migrationError->getMessage());
+            }
+        }
     } finally {
         $pdo->exec('SELECT pg_advisory_unlock(48392017)');
     }
