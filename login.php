@@ -1,5 +1,4 @@
 <?php
-require_once __DIR__ . '/init_db.php';
 require_once __DIR__ . '/auth_helpers.php';
 if (getDb() === null) {
     header('Location: index.php');
