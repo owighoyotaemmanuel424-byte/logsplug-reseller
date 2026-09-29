@@ -5,6 +5,7 @@ $resellerBalanceForNav = function_exists('getResellerPlatformBalance') ? getRese
 <aside class="admin-sidebar" id="adminSidebar" aria-label="Admin navigation">
     <div class="admin-sidebar-inner">
         <div class="admin-brand-row">
+            <button class="admin-mobile-close" id="adminMobileClose" type="button" aria-label="Close navigation">×</button>
             <a class="admin-brand" href="index.php" aria-label="Reseller Admin dashboard">
                 <span class="admin-brand-mark">LP</span>
                 <span class="admin-brand-text">Reseller Admin</span>
@@ -65,6 +66,7 @@ $resellerBalanceForNav = function_exists('getResellerPlatformBalance') ? getRese
     var body = document.body;
     var toggle = document.getElementById('adminSidebarToggle');
     var scrim = document.getElementById('adminSidebarScrim');
+    var mobileClose = document.getElementById('adminMobileClose');
     var storageKey = 'logsplug-admin-sidebar-collapsed';
 
     function isMobile() {
@@ -110,6 +112,24 @@ $resellerBalanceForNav = function_exists('getResellerPlatformBalance') ? getRese
             setCollapsed(true, false);
         });
     }
+
+    if (mobileClose) {
+        mobileClose.addEventListener('click', function () {
+            setCollapsed(true, false);
+        });
+    }
+
+    document.addEventListener('keydown', function (event) {
+        if (event.key === 'Escape' && isMobile() && body.classList.contains('admin-sidebar-mobile-open')) {
+            setCollapsed(true, false);
+        }
+    });
+
+    document.querySelectorAll('.admin-nav a, .admin-sidebar-footer a').forEach(function (link) {
+        link.addEventListener('click', function () {
+            if (isMobile()) setCollapsed(true, false);
+        });
+    });
 
     window.addEventListener('resize', function () {
         if (!isMobile()) {
