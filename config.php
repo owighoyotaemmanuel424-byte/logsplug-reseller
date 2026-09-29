@@ -10,3 +10,45 @@ define('DATABASE_URL', trim((string) (getenv('DATABASE_URL') ?: '')));
 define('SPRINTPAY_ENABLED', filter_var(getenv('SPRINTPAY_ENABLED') ?: 'false', FILTER_VALIDATE_BOOLEAN));
 define('SPRINTPAY_MERCHANT_ID', getenv('SPRINTPAY_MERCHANT_ID') ?: '');
 define('SPRINTPAY_CALLBACK_URL', getenv('SPRINTPAY_CALLBACK_URL') ?: '');
+
+function createDatabaseConnection(): ?PDO
+{
+    $url = defined('DATABASE_URL') ? trim((string) DATABASE_URL) : '';
+    if ($url === '') return null;
+
+    try {
+        if (preg_match('/^postgres(?:ql)?:\/\//i', $url)) {
+            $parts = parse_url($url);
+            if ($parts === false || empty($parts['host'])) {
+                throw new RuntimeException('Invalid PostgreSQL DATABASE_URL.');
+            }
+
+            $host = $parts['host'];
+            $port = isset($parts['port']) ? (int) $parts['port'] : 5432;
+            $dbname = isset($parts['path']) ? ltrim($parts['path'], '/') : '';
+            $user = isset($parts['user']) ? urldecode($parts['user']) : '';
+            $password = isset($parts['pass']) ? urldecode($parts['pass']) : '';
+
+            if ($dbname === '' || $user === '') {
+                throw new RuntimeException('DATABASE_URL is missing database name or username.');
+            }
+
+            $dsn = 'pgsql:host=' . $host . ';port=' . $port . ';dbname=' . $dbname . ';sslmode=require';
+            return new PDO($dsn, $user, $password, [
+                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+                PDO::ATTR_EMULATE_PREPARES => false,
+            ]);
+        }
+
+        // Also support a native PDO pgsql DSN if one is supplied.
+        return new PDO($url, null, null, [
+            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+            PDO::ATTR_EMULATE_PREPARES => false,
+        ]);
+    } catch (Throwable $e) {
+        error_log('Database connection failed: ' . $e->getMessage());
+        return null;
+    }
+}
