@@ -7,18 +7,7 @@ if (session_status() === PHP_SESSION_NONE) session_start();
 
 function getDb(): ?PDO
 {
-    $dsn = defined('DATABASE_URL') ? trim((string) DATABASE_URL) : '';
-    if ($dsn === '') return null;
-    try {
-        return new PDO($dsn, null, null, [
-            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-            PDO::ATTR_EMULATE_PREPARES => false,
-        ]);
-    } catch (Throwable $e) {
-        error_log('Database connection failed: ' . $e->getMessage());
-        return null;
-    }
+    return function_exists('createDatabaseConnection') ? createDatabaseConnection() : null;
 }
 function getCurrentUser(): ?array {
     if (empty($_SESSION['user_id'])) return null;
