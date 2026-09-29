@@ -24,7 +24,9 @@
     overflow: hidden;
 }
 .admin-sidebar-inner { display: flex; flex-direction: column; height: 100%; padding: 18px 12px; }
-.admin-brand-row { padding: 0 4px 16px; border-bottom: 1px solid rgba(255,255,255,.08); }
+.admin-brand-row { position: relative; padding: 0 4px 16px; border-bottom: 1px solid rgba(255,255,255,.08); }
+.admin-mobile-close { display: none; position: absolute; top: 5px; right: 2px; width: 36px; height: 36px; border: 0; border-radius: 10px; background: rgba(255,255,255,.07); color: #cbd5e1; font-size: 1.5rem; line-height: 1; cursor: pointer; }
+.admin-mobile-close:hover { background: rgba(255,255,255,.13); color: #fff; }
 .admin-brand {
     display: flex !important;
     align-items: center;
@@ -193,8 +195,11 @@
 @media (max-width: 768px) {
     .admin-sidebar {
         width: min(290px, 86vw);
-        transform: translateX(-100%);
+        transform: translateX(-105%);
+        box-shadow: 18px 0 45px rgba(15,23,42,.22);
     }
+    .admin-mobile-close { display: block; }
+    .admin-brand-row { padding-right: 44px; }
     .admin-body.admin-sidebar-mobile-open .admin-sidebar { transform: translateX(0); }
     .admin-sidebar-scrim {
         position: fixed;
