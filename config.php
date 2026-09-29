@@ -7,6 +7,7 @@ define('SITE_TITLE', getenv('SITE_TITLE') ?: 'My Reseller Store');
 define('BUSINESS_NAME', getenv('BUSINESS_NAME') ?: 'My Reseller Store');
 define('LOGO_URL', getenv('LOGO_URL') ?: '');
 define('DATABASE_URL', trim((string) (getenv('DATABASE_URL') ?: '')));
+define('AUTH_SESSION_SECRET', trim((string) (getenv('AUTH_SESSION_SECRET') ?: '')));
 define('SPRINTPAY_ENABLED', filter_var(getenv('SPRINTPAY_ENABLED') ?: 'false', FILTER_VALIDATE_BOOLEAN));
 define('SPRINTPAY_MERCHANT_ID', getenv('SPRINTPAY_MERCHANT_ID') ?: '');
 define('SPRINTPAY_CALLBACK_URL', getenv('SPRINTPAY_CALLBACK_URL') ?: '');
