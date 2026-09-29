@@ -64,15 +64,60 @@ function cookieUserId(): ?int {
     return (int)$id;
 }
 
+function neonAuthCookieHeader(): string {
+    $pairs = [];
+    foreach ($_COOKIE as $name => $value) {
+        if (str_contains((string)$name, 'session_token')) $pairs[] = $name . '=' . $value;
+    }
+    return implode('; ', $pairs);
+}
+function neonAuthRequest(string $path, ?array $body = null): array {
+    $base = defined('NEON_AUTH_URL') ? rtrim((string)NEON_AUTH_URL, '/') : '';
+    if ($base === '') return ['ok'=>false,'data'=>null,'error'=>'NEON_AUTH_URL is not configured.'];
+    $headers = ['Accept: application/json','Content-Type: application/json'];
+    $cookie = neonAuthCookieHeader();
+    if ($cookie !== '') $headers[] = 'Cookie: '.$cookie;
+    $opts = ['http'=>['method'=>$body===null?'GET':'POST','header'=>implode("\r\n",$headers),'ignore_errors'=>true,'timeout'=>15]];
+    if ($body !== null) $opts['http']['content']=json_encode($body,JSON_UNESCAPED_SLASHES);
+    $ctx=stream_context_create($opts);
+    $raw=@file_get_contents($base.'/'.ltrim($path,'/'),false,$ctx);
+    $headersOut=$http_response_header ?? [];
+    $status=0;
+    foreach($headersOut as $h){if(preg_match('/^HTTP\/\S+\s+(\d+)/',$h,$m)){ $status=(int)$m[1]; break; }}
+    foreach($headersOut as $h){
+        if(stripos($h,'Set-Cookie:')!==0) continue;
+        $part=trim(substr($h,11)); $first=explode(';',$part,2)[0];
+        if(!str_contains($first,'=')) continue;
+        [$n,$v]=explode('=',$first,2);
+        setcookie(trim($n),trim($v),['expires'=>time()+604800,'path'=>'/','secure'=>true,'httponly'=>true,'samesite'=>'Lax']);
+        $_COOKIE[trim($n)]=trim($v);
+    }
+    $data=is_string($raw)&&$raw!==''?json_decode($raw,true):null;
+    return ['ok'=>$status>=200&&$status<300,'data'=>$data,'error'=>is_array($data)?($data['message']??'Authentication failed.'):'Authentication failed.'];
+}
+function localUserFromNeon(array $user): ?array {
+    $pdo=getDb(); if(!$pdo||empty($user['email'])) return null;
+    $email=strtolower(trim((string)$user['email']));
+    $name=trim((string)($user['name']??$email));
+    $st=$pdo->prepare('SELECT id,email,name,created_at FROM public.users WHERE LOWER(BTRIM(email))=LOWER(BTRIM(?)) LIMIT 1');
+    $st->execute([$email]); $row=$st->fetch();
+    if($row) return ['id'=>(int)$row['id'],'email'=>$row['email'],'name'=>$row['name'],'created_at'=>$row['created_at']];
+    try{
+        $pdo->beginTransaction();
+        $st=$pdo->prepare('INSERT INTO public.users(email,password_hash,name) VALUES(?,?,?) RETURNING id,created_at');
+        $st->execute([$email,password_hash(bin2hex(random_bytes(32)),PASSWORD_DEFAULT),$name]);
+        $created=$st->fetch(); $id=(int)$created['id'];
+        $pdo->prepare('INSERT INTO wallets(user_id,balance) VALUES(?,0) ON CONFLICT(user_id) DO NOTHING')->execute([$id]);
+        $pdo->commit();
+        return ['id'=>$id,'email'=>$email,'name'=>$name,'created_at'=>$created['created_at']];
+    }catch(Throwable $e){if($pdo->inTransaction())$pdo->rollBack();error_log('Neon user mapping failed: '.$e->getMessage());return null;}
+}
 function getCurrentUser(): ?array {
-    $userId = !empty($_SESSION['user_id']) ? (int)$_SESSION['user_id'] : cookieUserId();
-    if (!$userId) return null;
-    $pdo=getDb(); if(!$pdo)return null;
-    $st=$pdo->prepare('SELECT id,email,name,created_at FROM public.users WHERE id=? LIMIT 1'); $st->execute([$userId]);
-    $row=$st->fetch();
-    if (!$row) { unset($_SESSION['user_id']); clearAuthCookie(); return null; }
-    if (empty($_SESSION['user_id'])) $_SESSION['user_id']=(int)$row['id'];
-    return $row;
+    $r=neonAuthRequest('/get-session');
+    if(!$r['ok']||empty($r['data']['user'])) return null;
+    $local=localUserFromNeon((array)$r['data']['user']);
+    if($local){$_SESSION['user_id']=$local['id'];return $local;}
+    return null;
 }
 function getWalletBalance(int $userId): float {
     $pdo=getDb(); if(!$pdo)return 0.0;
@@ -100,56 +145,28 @@ function requireLogin(): void {
     if(getCurrentUser()===null){header('Location: login.php?redirect='.urlencode($_SERVER['REQUEST_URI']??'index.php'));exit;}
 }
 function loginUser(string $email,string $password): bool {
-    $pdo = getDb();
-    if (!$pdo) {
-        error_log('Login failed: database unavailable.');
-        return false;
-    }
-    $email = strtolower(trim($email));
-    $st = $pdo->prepare('SELECT id,password_hash FROM public.users WHERE LOWER(BTRIM(email))=LOWER(BTRIM(?)) LIMIT 1');
-    $st->execute([$email]);
-    $row = $st->fetch();
-    if (!$row) {
-        error_log('Login failed: customer email not found.');
-        return false;
-    }
-    if (!password_verify($password, (string) $row['password_hash'])) {
-        error_log('Login failed: password verification failed.');
-        return false;
-    }
-    session_regenerate_id(true);
-    $_SESSION['user_id'] = (int) $row['id'];
-    setAuthCookie((int) $row['id']);
-    session_write_close();
-    return true;
+    $r=neonAuthRequest('/sign-in/email',['email'=>strtolower(trim($email)),'password'=>$password,'rememberMe'=>true]);
+    if(!$r['ok']){error_log('Neon Auth login failed: '.($r['error']??'unknown'));return false;}
+    $user=$r['data']['user']??null;
+    if(!is_array($user)){ $s=neonAuthRequest('/get-session'); $user=$s['data']['user']??null; }
+    $local=is_array($user)?localUserFromNeon($user):null;
+    if(!$local)return false;
+    session_regenerate_id(true);$_SESSION['user_id']=$local['id'];session_write_close();return true;
 }
 function registerUser(string $email,string $password,string $name): ?string {
-    $pdo=getDb(); if(!$pdo)return 'Database not configured.';
-    $email = strtolower(trim($email));
-    $name = trim($name);
-    try {
-        $pdo->beginTransaction();
-        $st=$pdo->prepare('INSERT INTO public.users(email,password_hash,name) VALUES(?,?,?) RETURNING id');
-        $st->execute([$email,password_hash($password,PASSWORD_DEFAULT),$name]);
-        $id=(int)$st->fetchColumn();
-        $pdo->prepare('INSERT INTO public.wallets(user_id,balance) VALUES(?,0)')->execute([$id]);
-        $pdo->commit();
-        session_regenerate_id(true);
-        $_SESSION['user_id']=$id;
-        setAuthCookie($id);
-        session_write_close();
-        error_log('Customer registration completed successfully.');
-        return null;
-    } catch(PDOException $e) {
-        if($pdo->inTransaction())$pdo->rollBack();
-        if($e->getCode()==='23505')return 'Email already registered.';
-        error_log('Registration failed: '.$e->getMessage());
-        return 'Registration failed.';
-    }
+    $r=neonAuthRequest('/sign-up/email',['name'=>trim($name),'email'=>strtolower(trim($email)),'password'=>$password]);
+    if(!$r['ok'])return (string)($r['error']??'Registration failed.');
+    $user=$r['data']['user']??null;
+    if(!is_array($user)){ $s=neonAuthRequest('/get-session'); $user=$s['data']['user']??null; }
+    $local=is_array($user)?localUserFromNeon($user):null;
+    if(!$local)return 'Account created, but the account profile could not be initialized.';
+    session_regenerate_id(true);$_SESSION['user_id']=$local['id'];session_write_close();return null;
 }
 function logoutUser(): void {
-    $_SESSION=[];
-    clearAuthCookie(); if(ini_get('session.use_cookies')){$p=session_get_cookie_params();setcookie(session_name(),'',time()-42000,$p['path'],$p['domain'],$p['secure'],$p['httponly']);} session_destroy();
+    neonAuthRequest('/sign-out');
+    $_SESSION=[]; clearAuthCookie();
+    if(ini_get('session.use_cookies')){$p=session_get_cookie_params();setcookie(session_name(),'',time()-42000,$p['path'],$p['domain'],$p['secure'],$p['httponly']);}
+    session_destroy();
 }
 function getSetting(string $key): ?string {
     $pdo=getDb(); if(!$pdo)return null; $st=$pdo->prepare('SELECT value FROM settings WHERE key=?');$st->execute([$key]);$row=$st->fetch();
