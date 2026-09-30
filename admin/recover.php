@@ -71,7 +71,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$error) {
     <link rel="stylesheet" href="assets/css/admin.css">
 </head>
 <body>
-<div class="site-wrap narrow" style="margin-top: 60px;">
+<div class="site-wrap narrow admin-login-card">
     <div class="auth-card">
         <h1 class="page-title">Recover admin password</h1>
         <?php if ($error): ?>
