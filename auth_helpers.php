@@ -79,7 +79,8 @@ function getWalletBalance(int $userId):string {
 function getWalletTransactions(int $userId):array {
     $st=db()->prepare('SELECT type,amount_kobo,reference,description,created_at FROM wallet_transactions WHERE user_id=? ORDER BY created_at DESC,id DESC');
     $st->execute([$userId]);$out=[];
-    foreach($st->fetchAll() as $r)$out[]=['type'=>$r['type'],'amount'=>nairaDecimal((string)$r['amount_kobo']),'reference'=>$r['reference'],'description'=>$r['description'],'date'=>$r['created_at']];
+    foreach($st->fetchAll() as $r)$amount=nairaDecimal((string)$r['amount_kobo']);$signed=in_array($r['type'],['debit'],true)?'-'.$amount:$amount;
+  $out[]=['type'=>$r['type'],'amount'=>$signed,'reference'=>$r['reference'],'description'=>$r['description'],'date'=>$r['created_at'],'status'=>'confirmed'];
     return $out;
 }
 
