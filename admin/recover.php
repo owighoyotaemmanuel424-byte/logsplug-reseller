@@ -1,5 +1,7 @@
 <?php
 require_once __DIR__ . '/../admin_helpers.php';
+require_once __DIR__.'/includes/csrf.php';
+if ($_SERVER['REQUEST_METHOD']==='POST') require_csrf();
 
 $pdo = getDb();
 $error = '';
@@ -35,7 +37,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$error) {
                 throw new RuntimeException('This recovery key has already been used.');
             }
 
-            $hash = password_hash($password, PASSWORD_DEFAULT);
+            $hash = password_hash($password, PASSWORD_ARGON2ID);
             $st = $pdo->prepare(
                 'INSERT INTO admin_accounts (id, password_hash)
                  VALUES (1, ?)
@@ -81,7 +83,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$error) {
             <p><a class="btn btn-primary" href="login.php">Return to admin login</a></p>
         <?php endif; ?>
         <?php if (!$success): ?>
-        <form method="post" class="admin-form" autocomplete="off">
+        <form method="post" class="admin-form" autocomplete="off"><?=csrf_field()?>
             <div class="form-group">
                 <label for="recovery_token">Recovery key</label>
                 <input type="password" id="recovery_token" name="recovery_token" required autocomplete="off">
