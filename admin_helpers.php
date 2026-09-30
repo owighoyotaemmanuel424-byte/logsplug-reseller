@@ -302,20 +302,41 @@ function adminDeleteUser(int $userId): bool {
     }
 }
 
-function getResellerPlatformBalance(): ?float {
-    $apiKey = defined('RESELLER_API_KEY') ? RESELLER_API_KEY : '';
-    $baseUrl = rtrim(defined('API_BASE_URL') ? API_BASE_URL : '', '/');
-    if ($apiKey === '' || $baseUrl === '') return null;
+function getResellerProviderStatus(): array {
+    $apiKey = defined('RESELLER_API_KEY') ? trim((string) RESELLER_API_KEY) : '';
+    $baseUrl = rtrim(defined('API_BASE_URL') ? (string) API_BASE_URL : '', '/');
+    if ($apiKey === '') return ['connected' => false, 'balance' => null, 'code' => 0, 'message' => 'Reseller API key is not configured.'];
+    if ($baseUrl === '') return ['connected' => false, 'balance' => null, 'code' => 0, 'message' => 'Provider API URL is not configured.'];
+
     $ch = curl_init($baseUrl . '/api/reseller/me');
     curl_setopt_array($ch, [
         CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_HTTPHEADER => ['X-Api-Key: ' . $apiKey],
+        CURLOPT_HTTPHEADER => ['X-Api-Key: ' . $apiKey, 'Accept: application/json'],
+        CURLOPT_CONNECTTIMEOUT => 3,
+        CURLOPT_TIMEOUT => 8,
+        CURLOPT_FOLLOWLOCATION => true,
+        CURLOPT_ENCODING => '',
     ]);
     $res = curl_exec($ch);
-    $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $curlError = curl_error($ch);
     curl_close($ch);
-    if ($code !== 200 || !$res) return null;
-    $data = json_decode($res, true);
-    if (empty($data['success']) || !isset($data['data']['balance'])) return null;
-    return (float) $data['data']['balance'];
+
+    $data = $res ? json_decode($res, true) : null;
+    $message = is_array($data) && !empty($data['message']) ? (string) $data['message'] : '';
+
+    if ($code === 200 && is_array($data) && !empty($data['success']) && isset($data['data']['balance'])) {
+        return ['connected' => true, 'balance' => (float) $data['data']['balance'], 'code' => $code, 'message' => 'Connected'];
+    }
+
+    if ($message === '') {
+        $message = $curlError !== '' ? 'Unable to reach provider: ' . $curlError : ($code > 0 ? 'Provider returned HTTP ' . $code . '.' : 'Provider did not return a response.');
+    }
+
+    return ['connected' => false, 'balance' => null, 'code' => $code, 'message' => $message];
+}
+
+function getResellerPlatformBalance(): ?float {
+    $status = getResellerProviderStatus();
+    return $status['connected'] ? $status['balance'] : null;
 }
