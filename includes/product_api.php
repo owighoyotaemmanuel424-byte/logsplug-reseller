@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 require_once __DIR__.'/db.php';
+require_once __DIR__.'/naira.php';
 require_once __DIR__.'/logspanel_api.php';
 
 function fetchResellerProductsFast(string $baseUrl='',string $apiKey='',int $ttl=60):array
