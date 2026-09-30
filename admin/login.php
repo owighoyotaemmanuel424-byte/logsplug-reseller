@@ -1,5 +1,7 @@
 <?php
 require_once __DIR__ . '/../admin_helpers.php';
+require_once __DIR__ . '/includes/csrf.php';
+if ($_SERVER['REQUEST_METHOD'] === 'POST') require_csrf();
 
 if (isAdminLoggedIn()) {
     header('Location: index.php');
@@ -52,7 +54,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$noDb) {
         <?php endif; ?>
 
         <?php if (!$noDb): ?>
-        <form method="post" class="admin-form" autocomplete="off">
+        <form method="post" class="admin-form" autocomplete="off"><?=csrf_field()?>
             <div class="form-group">
                 <label for="email">Admin email</label>
                 <input type="email" id="email" name="email" required autocomplete="username"
