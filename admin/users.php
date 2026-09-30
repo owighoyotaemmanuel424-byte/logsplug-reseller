@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/../admin_helpers.php';
 requireAdmin();
+require_once __DIR__.'/includes/csrf.php';
 
 $message = '';
 $error = '';
@@ -8,8 +9,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (isset($_POST['action'])) {
         if ($_POST['action'] === 'fund' && isset($_POST['user_id'], $_POST['amount'])) {
             $userId = (int) $_POST['user_id'];
-            $amount = (float) $_POST['amount'];
-            if ($amount > 0 && $userId > 0) {
+            $amount = trim((string) $_POST['amount']);
+            if ($amount !== '' && $userId > 0) {
                 if (adminCreditWallet($userId, $amount)) {
                     header('Location: users.php?funded=1&user_id=' . $userId);
                     exit;
@@ -32,9 +33,8 @@ $pdo = getDb();
 $users = [];
 if ($pdo) {
     $st = $pdo->query('
-        SELECT u.id, u.email, u.name, u.created_at, COALESCE(w.balance, 0) AS balance
+        SELECT u.id, u.email, u.name, u.created_at, u.wallet_balance AS balance
         FROM users u
-        LEFT JOIN wallets w ON w.user_id = u.id
         ORDER BY u.created_at DESC
     ');
     if ($st) {
@@ -108,7 +108,7 @@ require __DIR__ . '/includes/header.php';
                     <h3 id="fundModalTitle">Fund wallet</h3>
                     <button type="button" class="admin-modal-close" id="fundModalClose" aria-label="Close">&times;</button>
                 </div>
-                <form method="post" action="users.php">
+                <form method="post" action="users.php"><?=csrf_field()?>
                     <input type="hidden" name="action" value="fund">
                     <input type="hidden" name="user_id" id="fundUserId" value="">
                     <div class="admin-modal-body">
