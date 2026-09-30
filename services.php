@@ -12,13 +12,11 @@ $businessName = (function_exists('getSetting') && getSetting('business_name')) ?
 $logoUrl = (function_exists('getSetting') && getSetting('logo_url') !== null) ? trim((string)getSetting('logo_url')) : '';
 
 $products=[]; $error='';
+require_once __DIR__ . '/includes/product_api.php';
 if ($apiKey && $baseUrl) {
-    $ch=curl_init($baseUrl.'/api/reseller/products');
-    curl_setopt_array($ch,[CURLOPT_RETURNTRANSFER=>true,CURLOPT_HTTPHEADER=>['X-Api-Key: '.$apiKey],CURLOPT_CONNECTTIMEOUT=>3,CURLOPT_TIMEOUT=>6,CURLOPT_FOLLOWLOCATION=>true]);
-    $res=curl_exec($ch); $code=(int)curl_getinfo($ch,CURLINFO_HTTP_CODE); $curlError=curl_error($ch); curl_close($ch);
-    $data=$res?json_decode($res,true):null;
-    if($code===200 && is_array($data) && !empty($data['success']) && isset($data['data'])) $products=$data['data'];
-    else $error=is_array($data)&&!empty($data['message'])?(string)$data['message']:($curlError?'Unable to reach services right now.':'Services are temporarily unavailable.');
+    $productResult = fetchResellerProductsFast($baseUrl, $apiKey, 60);
+    $products = $productResult['products'];
+    $error = $productResult['error'];
 }
 $categories=[];
 foreach($products as $p){
