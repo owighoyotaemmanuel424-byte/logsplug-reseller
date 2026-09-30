@@ -20,8 +20,9 @@ $databaseConfigured = defined('DATABASE_URL') && trim((string) DATABASE_URL) !==
             <a href="index.php">Home</a><a href="index.php#shop">Services</a>
             <?php if ($databaseConfigured): ?>
                 <?php if ($currentUser): ?>
+                    <a href="dashboard.php" class="nav-cta">Dashboard</a>
                     <a href="wallet.php" class="nav-wallet">Wallet</a>
-                    <a href="my_orders.php">My Orders</a><a href="profile.php">Profile</a><a href="logout.php">Logout</a>
+                    <a href="my_orders.php">Orders</a><a href="profile.php">Profile</a><a href="logout.php">Logout</a>
                 <?php else: ?>
                     <a href="login.php">Login</a><a href="register.php" class="nav-cta">Create account</a>
                 <?php endif; ?>
