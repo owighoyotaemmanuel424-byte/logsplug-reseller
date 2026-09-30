@@ -1,7 +1,7 @@
 <?php
 // Runtime configuration. Set these as server environment variables in production.
 define('RESELLER_API_KEY', getenv('RESELLER_API_KEY') ?: '');
-define('API_BASE_URL', rtrim(getenv('API_BASE_URL') ?: 'https://loggsplug.shop', '/'));
+define('API_BASE_URL', rtrim(getenv('API_BASE_URL') ?: 'https://logspanel.com/api/v1', '/'));
 define('MARKUP_PERCENT', (float) (getenv('MARKUP_PERCENT') ?: 10));
 define('SITE_TITLE', getenv('SITE_TITLE') ?: 'My Reseller Store');
 define('BUSINESS_NAME', getenv('BUSINESS_NAME') ?: 'My Reseller Store');
@@ -28,20 +28,13 @@ function createDatabaseConnection(): ?PDO
     try {
         if (preg_match('/^postgres(?:ql)?:\/\//i', $url)) {
             $parts = parse_url($url);
-            if ($parts === false || empty($parts['host'])) {
-                throw new RuntimeException('Invalid PostgreSQL DATABASE_URL.');
-            }
-
+            if ($parts === false || empty($parts['host'])) throw new RuntimeException('Invalid PostgreSQL DATABASE_URL.');
             $host = $parts['host'];
             $port = isset($parts['port']) ? (int) $parts['port'] : 5432;
             $dbname = isset($parts['path']) ? ltrim($parts['path'], '/') : '';
             $user = isset($parts['user']) ? urldecode($parts['user']) : '';
             $password = isset($parts['pass']) ? urldecode($parts['pass']) : '';
-
-            if ($dbname === '' || $user === '') {
-                throw new RuntimeException('DATABASE_URL is missing database name or username.');
-            }
-
+            if ($dbname === '' || $user === '') throw new RuntimeException('DATABASE_URL is missing database name or username.');
             $dsn = 'pgsql:host=' . $host . ';port=' . $port . ';dbname=' . $dbname . ';sslmode=require';
             return new PDO($dsn, $user, $password, [
                 PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
@@ -49,8 +42,6 @@ function createDatabaseConnection(): ?PDO
                 PDO::ATTR_EMULATE_PREPARES => false,
             ]);
         }
-
-        // Also support a native PDO pgsql DSN if one is supplied.
         return new PDO($url, null, null, [
             PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
             PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
