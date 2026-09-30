@@ -43,7 +43,9 @@ try {
             )",
             "CREATE TABLE IF NOT EXISTS admin_accounts (
                 id SMALLINT PRIMARY KEY CHECK (id = 1),
+                email TEXT NOT NULL DEFAULT 'admin@localhost',
                 password_hash TEXT NOT NULL,
+                name TEXT NOT NULL DEFAULT 'Administrator',
                 created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
             )",
@@ -100,6 +102,8 @@ try {
             "ALTER TABLE users ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP",
             "ALTER TABLE wallets ADD COLUMN IF NOT EXISTS balance NUMERIC(18,2) NOT NULL DEFAULT 0",
             "ALTER TABLE wallets ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP",
+            "ALTER TABLE admin_accounts ADD COLUMN IF NOT EXISTS email TEXT NOT NULL DEFAULT 'admin@localhost'",
+            "ALTER TABLE admin_accounts ADD COLUMN IF NOT EXISTS name TEXT NOT NULL DEFAULT 'Administrator'",
         ];
 
         foreach ($schemaMigrations as $sql) {
