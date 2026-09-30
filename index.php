@@ -41,39 +41,13 @@ if (isset($_GET['ordered']) && $_GET['ordered'] === '1') {
     $orderMessage = 'Order successful. Your order has been recorded.';
 }
 
-// Fetch products from API
+// Fetch products from the short-lived server cache first.
+// This removes the upstream API wait from repeat page loads.
+require_once __DIR__ . '/includes/product_api.php';
 if ($apiKey && $baseUrl) {
-    $ch = curl_init($baseUrl . '/api/reseller/products');
-    curl_setopt_array($ch, [
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_HTTPHEADER => ['X-Api-Key: ' . $apiKey],
-        CURLOPT_CONNECTTIMEOUT => 3,
-        CURLOPT_TIMEOUT => 6,
-        CURLOPT_FOLLOWLOCATION => true,
-    ]);
-    $res = curl_exec($ch);
-    $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    $curlError = curl_error($ch);
-    curl_close($ch);
-    if ($code === 200 && $res) {
-        $data = json_decode($res, true);
-        if (!empty($data['success']) && isset($data['data'])) {
-            $products = $data['data'];
-        } else {
-            $error = $data['message'] ?? 'Failed to load products.';
-        }
-    } else {
-        if ($res) {
-            $data = is_string($res) ? json_decode($res, true) : null;
-            if (is_array($data) && isset($data['message']) && (string) $data['message'] !== '') {
-                $error = $data['message'];
-            } else {
-                $error = 'HTTP ' . $code . '. Check API key and reseller status on the platform. If the key is correct, the key may be revoked or the reseller suspended – check Admin → Resellers on ' . parse_url($baseUrl, PHP_URL_HOST) . '.';
-            }
-        } else {
-            $error = $curlError ? 'Connection error: ' . $curlError : 'Could not reach ' . $baseUrl . '. Check API_BASE_URL and server connectivity.';
-        }
-    }
+    $productResult = fetchResellerProductsFast($baseUrl, $apiKey, 60);
+    $products = $productResult['products'];
+    $error = $productResult['error'];
 }
 
 // Handle order form submit (only authenticated users when DB/auth is enabled)
