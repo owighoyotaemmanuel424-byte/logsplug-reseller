@@ -5,13 +5,6 @@ require_once __DIR__ . '/includes/logspanel_api.php';
 require_once __DIR__ . '/includes/naira.php';
 require_once __DIR__ . '/includes/product_api.php';
 
-$currentUser = function_exists('getCurrentUser') ? getCurrentUser() : null;
-$apiKey = defined('RESELLER_API_KEY') ? RESELLER_API_KEY : '';
-$baseUrl = rtrim(defined('API_BASE_URL') ? API_BASE_URL : '', '/');
-$markup = (float)(function_exists('getSetting') && getSetting('markup_percent') !== null ? getSetting('markup_percent') : (defined('MARKUP_PERCENT') ? MARKUP_PERCENT : 0));
-$adminExtra = (float)(function_exists('getSetting') && getSetting('admin_extra_amount') !== null ? getSetting('admin_extra_amount') : 0);
-$businessName = (function_exists('getSetting') && getSetting('business_name')) ? getSetting('business_name') : (defined('BUSINESS_NAME') ? BUSINESS_NAME : 'Store');
-
 $currentUser = getCurrentUser();
 $markup = getSetting('markup_percent') ?? MARKUP_PERCENT;
 $adminExtra = getSetting('admin_extra_amount') ?? '0.00';
