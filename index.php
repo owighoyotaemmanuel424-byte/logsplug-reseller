@@ -51,7 +51,8 @@ require __DIR__.'/includes/head.php';require __DIR__.'/includes/header.php';
   <p><?=htmlspecialchars((string)($p['description']??''))?></p>
   <div class="reseller-product-card__meta"><span class="card__pill"> <?=htmlspecialchars(nairaFormat($unit))?> </span><span class="card__pill">Stock: <?= (int)$p['available_quantity']?></span></div>
   <?php if($user&&$p['available_quantity']>0):?><form method="post" class="reseller-product-card__form">
-   <input type="hidden" name="product_ref" value="<?=htmlspecialchars((string)$p['product_ref'])?>">
+   <input type="hidden" name="category_id" value="<?= (int)($p['category_id']??$p['id']??0) ?>">
+   <?php if((string)($p['product_ref']??'')!==''): ?><input type="hidden" name="product_ref" value="<?=htmlspecialchars((string)$p['product_ref'])?>"><?php endif; ?>
    <input type="number" name="qty" value="1" min="<?=max(1,(int)$p['min_quantity'])?>" max="<?=min(100,(int)$p['max_quantity'])?>" class="qty-input" required>
    <button class="btn btn-primary" type="submit">Buy</button>
   </form><?php elseif(!$user):?><a class="btn btn-primary" href="login.php?redirect=<?=rawurlencode('index.php')?>">Login to buy</a><?php else:?><span class="text-muted">Out of stock</span><?php endif;?>
