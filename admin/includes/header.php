@@ -24,14 +24,32 @@ $resellerBalanceForNav = function_exists('getResellerPlatformBalance') ? getRese
             <a href="settings.php" class="<?php echo $currentAdminPage === 'settings' ? 'active' : ''; ?>" title="Site & SprintPay">
                 <span class="admin-nav-icon">⚙</span><span class="admin-nav-label">Site &amp; SprintPay</span>
             </a>
-            <a href="users.php" class="<?php echo $currentAdminPage === 'users' ? 'active' : ''; ?>" title="Customers & wallets">
-                <span class="admin-nav-icon">♙</span><span class="admin-nav-label">Customers &amp; wallets</span>
+            <a href="users.php" class="<?php echo in_array($currentAdminPage, ['users','customers'], true) ? 'active' : ''; ?>" title="Customers">
+                <span class="admin-nav-icon">♙</span><span class="admin-nav-label">Customers</span>
+            </a>
+            <a href="wallets.php" class="<?php echo $currentAdminPage === 'wallets' ? 'active' : ''; ?>" title="Wallets & ledger">
+                <span class="admin-nav-icon">₦</span><span class="admin-nav-label">Wallets &amp; ledger</span>
+            </a>
+            <a href="transactions.php" class="<?php echo $currentAdminPage === 'transactions' ? 'active' : ''; ?>" title="Transactions">
+                <span class="admin-nav-icon">↔</span><span class="admin-nav-label">Transactions</span>
             </a>
             <a href="funding.php" class="<?php echo $currentAdminPage === 'funding' ? 'active' : ''; ?>" title="Funding">
                 <span class="admin-nav-icon">₦</span><span class="admin-nav-label">Funding</span>
             </a>
             <a href="orders.php" class="<?php echo $currentAdminPage === 'orders' ? 'active' : ''; ?>" title="Orders">
                 <span class="admin-nav-icon">▤</span><span class="admin-nav-label">Orders</span>
+            </a>
+            <a href="providers.php" class="<?php echo $currentAdminPage === 'providers' ? 'active' : ''; ?>" title="Provider control">
+                <span class="admin-nav-icon">◎</span><span class="admin-nav-label">Provider control</span>
+            </a>
+            <a href="staff.php" class="<?php echo $currentAdminPage === 'staff' ? 'active' : ''; ?>" title="Staff & roles">
+                <span class="admin-nav-icon">♟</span><span class="admin-nav-label">Staff &amp; roles</span>
+            </a>
+            <a href="security.php" class="<?php echo $currentAdminPage === 'security' ? 'active' : ''; ?>" title="Security center">
+                <span class="admin-nav-icon">⌾</span><span class="admin-nav-label">Security center</span>
+            </a>
+            <a href="audit.php" class="<?php echo $currentAdminPage === 'audit' ? 'active' : ''; ?>" title="Audit log">
+                <span class="admin-nav-icon">≡</span><span class="admin-nav-label">Audit log</span>
             </a>
             <a href="reported_orders.php" class="<?php echo $currentAdminPage === 'reported' ? 'active' : ''; ?>" title="Reported orders">
                 <span class="admin-nav-icon">!</span><span class="admin-nav-label">Reported orders</span>
