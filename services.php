@@ -4,6 +4,7 @@ require_once __DIR__ . '/auth_helpers.php';
 require_once __DIR__ . '/includes/logspanel_api.php';
 require_once __DIR__ . '/includes/naira.php';
 require_once __DIR__ . '/includes/product_api.php';
+require_once __DIR__ . '/includes/providers/ProviderRegistry.php';
 
 $currentUser = getCurrentUser();
 $markup = getSetting('markup_percent') ?? MARKUP_PERCENT;
@@ -19,17 +20,34 @@ $boostCategories = [];
 $boostServices = [];
 $boostError = '';
 
-$logResult = fetchResellerProductsFast();
-$products = $logResult['products'];
-$logsError = $logResult['error'];
+// Never hit Logspanel directly from the customer catalog page. Provider catalog
+// requests are cron-only so repeated page loads cannot exhaust the provider limit.
 try {
-    $loadCached=function(string $key):array{ $st=db()->prepare('SELECT value FROM settings WHERE key=?');$st->execute([$key]);$raw=$st->fetchColumn();$d=is_string($raw)?json_decode($raw,true):null;return is_array($d['data']??null)?$d['data']:[]; };
+    $loadCached = function(string $key): array {
+        $st=db()->prepare('SELECT value FROM settings WHERE key=?');
+        $st->execute([$key]);
+        $raw=$st->fetchColumn();
+        $d=is_string($raw)?json_decode($raw,true):null;
+        return is_array($d['data']??null)?$d['data']:[];
+    };
+    $products=[];
+    $cachedLogs=$loadCached('catalog_logspanel');
+    foreach($cachedLogs as $p){
+        if(!is_array($p)) continue;
+        $parent=is_array($p['parent_category']??null)?$p['parent_category']:[];
+        $price=(string)($p['selling_price']??$p['price']??'0');
+        $products[]=['id'=>(int)($p['id']??0),'product_ref'=>(string)($p['product_ref']??''),'name'=>(string)($p['name']??'Unnamed service'),'description'=>(string)($p['description']??''),'category'=>(string)($parent['name']??$p['category']??'Other'),'selling_price'=>$price,'currency'=>(string)($p['currency']??'NGN'),'available_quantity'=>(int)($p['available_quantity']??0),'min_quantity'=>max(1,(int)($p['min_quantity']??1)),'max_quantity'=>min(100,max(1,(int)($p['max_quantity']??100))),'purchasable'=>!isset($p['purchasable'])||(bool)$p['purchasable'],'image_url'=>(string)($p['image']??$p['image_url']??'')];
+    }
+    $logsError=$products?'':'Catalog cache is empty. Run the catalog sync job.';
+} catch(Throwable $e) { $products=[]; $logsError='Catalog is temporarily unavailable.'; }
+try {
+    // Reuse the cached catalog loader defined above.
     $numberCountries=$loadCached('catalog_numbers_countries');$numberServices=$loadCached('catalog_numbers_services');
     $boostCategories=$loadCached('catalog_boost_categories');$boostServices=$loadCached('catalog_boost_services');
-    if(!$numberCountries&&!$numberServices){$countryResult=logspanelFetchNumberCountries();$numberCountries=$countryResult['countries'];$numberError=$countryResult['error'];}
-    if(!$numberServices&&$numberCountries){$numberResult=logspanelFetchAllNumberServices($numberCountries);$numberServices=$numberResult['services'];$numberError=$numberResult['error'];}
-    if(!$boostCategories&&!$boostServices){$boostCatResult=logspanelFetchBoostCategories();$boostCategories=$boostCatResult['categories'];$boostError=$boostCatResult['error'];}
-    if(!$boostServices){$boostResult=logspanelFetchAllBoostServices($boostCategories);$boostServices=$boostResult['services'];$boostError=$boostResult['error'];}
+    if(!$numberCountries) $numberError='Number catalog cache is empty. Run the catalog sync job.';
+    if(!$numberServices) $numberError=$numberError?:'Number services cache is empty. Run the catalog sync job.';
+    if(!$boostCategories) $boostError='Boost catalog cache is empty. Run the catalog sync job.';
+    if(!$boostServices) $boostError=$boostError?:'Boost services cache is empty. Run the catalog sync job.';
 } catch(Throwable $e) { $numberError=$numberError?:$e->getMessage(); }
 $categories = [];
 foreach ($products as $p) {
