@@ -87,7 +87,7 @@ final class ProviderRegistry
     public static function secret(string $providerId,string $secretName='api_key'): ?string
     {
         $schema=self::schema($providerId);
-        $stored=ProviderSecretStore::get($providerId,$secretName);
+        $st=db()->prepare('SELECT secret_ciphertext FROM provider_secrets WHERE provider_id=? AND secret_name=? LIMIT 1');$st->execute([$providerId,$secretName]);$cipher=$st->fetchColumn();$stored=is_string($cipher)&&$cipher!==''?ProviderSecretStore::decrypt($cipher):null;
         if($stored!==null&&$stored!=='') return $stored;
         $env=(string)($schema['secret_env']??'');
         return $env!=='' && $secretName===(string)($schema['secret_name']??'api_key') && getenv($env)!==false ? (string)getenv($env) : null;
