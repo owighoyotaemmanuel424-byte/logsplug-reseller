@@ -47,7 +47,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$noDb) {
     }
 }
 
-$adminPageTitle = $setup ? 'Admin account setup' : 'Admin login';
+$adminPageTitle = 'Admin login';
 
 $adminPageTitle = $setup ? 'Set admin password' : 'Admin login';
 ?>
@@ -63,7 +63,7 @@ $adminPageTitle = $setup ? 'Set admin password' : 'Admin login';
 <body>
 <div class="site-wrap narrow" style="margin-top: 60px;">
     <div class="auth-card">
-        <h1 class="page-title"><?php echo $noDb ? 'Admin' : ($setup ? 'Set admin password' : 'Admin login'); ?></h1>
+        <h1 class="page-title">Admin login</h1>
         <?php if ($noDb): ?>
             <div class="alert alert-error"><p>Database is not configured or cannot be reached. Set the <strong>DATABASE_URL</strong> environment variable in Render.</p></div>
         <?php elseif ($error): ?>
@@ -72,16 +72,17 @@ $adminPageTitle = $setup ? 'Set admin password' : 'Admin login';
         <?php if (!$noDb): ?>
         <form method="post" class="admin-form">
             <div class="form-group">
-                <label for="password"><?php echo $setup ? 'Choose a password (min 8 characters)' : 'Password'; ?></label>
-                <input type="password" id="password" name="password" required minlength="<?php echo $setup ? '8' : '1'; ?>">
+                <label for="password">Password</label>
+                <input type="password" id="password" name="password" required minlength="12" autocomplete="current-password">
             </div>
             <?php if ($setup): ?>
             <div class="form-group">
                 <label for="password_confirm">Confirm password</label>
-                <input type="password" id="password_confirm" name="password_confirm" required>
+                <input type="password" id="password_confirm" name="password_confirm" required minlength="12" autocomplete="new-password">
+                <p class="text-muted">If this installation has no admin credential yet, the password will initialize it securely and sign you in.</p>
             </div>
             <?php endif; ?>
-            <button type="submit" class="btn btn-primary"><?php echo $setup ? 'Create &amp; log in' : 'Log in'; ?></button>
+            <button type="submit" class="btn btn-primary">Log in</button>
         </form>
         <?php endif; ?>
     </div>
