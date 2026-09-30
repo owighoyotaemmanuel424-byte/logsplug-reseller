@@ -23,21 +23,14 @@ $logResult = fetchResellerProductsFast();
 $products = $logResult['products'];
 $logsError = $logResult['error'];
 try {
-    $countryResult = logspanelFetchNumberCountries();
-    $numberCountries = $countryResult['countries'];
-    $numberError = $countryResult['error'];
-    $numberResult = logspanelFetchAllNumberServices($numberCountries);
-    $numberServices = $numberResult['services'];
-    if ($numberResult['error'] !== '') $numberError = trim($numberError . ' | ' . $numberResult['error'], ' |');
-    $boostCatResult = logspanelFetchBoostCategories();
-    $boostCategories = $boostCatResult['categories'];
-    $boostError = $boostCatResult['error'];
-    $boostResult = logspanelFetchAllBoostServices($boostCategories);
-    $boostServices = $boostResult['services'];
-    if ($boostResult['error'] !== '') $boostError = $boostError !== '' ? $boostError . ' | ' . $boostResult['error'] : $boostResult['error'];
-} catch (Throwable $e) {
-    $numberError = $numberError ?: $e->getMessage();
-}
+    $loadCached=function(string $key):array{ $st=db()->prepare('SELECT value FROM settings WHERE key=?');$st->execute([$key]);$raw=$st->fetchColumn();$d=is_string($raw)?json_decode($raw,true):null;return is_array($d['data']??null)?$d['data']:[]; };
+    $numberCountries=$loadCached('catalog_numbers_countries');$numberServices=$loadCached('catalog_numbers_services');
+    $boostCategories=$loadCached('catalog_boost_categories');$boostServices=$loadCached('catalog_boost_services');
+    if(!$numberCountries&&!$numberServices){$countryResult=logspanelFetchNumberCountries();$numberCountries=$countryResult['countries'];$numberError=$countryResult['error'];}
+    if(!$numberServices&&$numberCountries){$numberResult=logspanelFetchAllNumberServices($numberCountries);$numberServices=$numberResult['services'];$numberError=$numberResult['error'];}
+    if(!$boostCategories&&!$boostServices){$boostCatResult=logspanelFetchBoostCategories();$boostCategories=$boostCatResult['categories'];$boostError=$boostCatResult['error'];}
+    if(!$boostServices){$boostResult=logspanelFetchAllBoostServices($boostCategories);$boostServices=$boostResult['services'];$boostError=$boostResult['error'];}
+} catch(Throwable $e) { $numberError=$numberError?:$e->getMessage(); }
 $categories = [];
 foreach ($products as $p) {
     $cat = trim((string)($p['category'] ?? '')) ?: 'Other';
