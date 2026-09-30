@@ -7,8 +7,11 @@
 function fetchResellerProductsFast(string $baseUrl, string $apiKey, int $ttl = 60): array
 {
     $baseUrl = rtrim($baseUrl, '/');
-    if ($baseUrl === '' || $apiKey === '') {
-        return ['products' => [], 'error' => ''];
+    if ($baseUrl === '') {
+        return ['products' => [], 'error' => 'Provider API URL is not configured.'];
+    }
+    if ($apiKey === '') {
+        return ['products' => [], 'error' => 'Provider API key is not configured.'];
     }
 
     $cacheKey = hash('sha256', $baseUrl . '|' . $apiKey);
@@ -25,8 +28,8 @@ function fetchResellerProductsFast(string $baseUrl, string $apiKey, int $ttl = 6
     curl_setopt_array($ch, [
         CURLOPT_RETURNTRANSFER => true,
         CURLOPT_HTTPHEADER => ['X-Api-Key: ' . $apiKey, 'Accept: application/json'],
-        CURLOPT_CONNECTTIMEOUT => 2,
-        CURLOPT_TIMEOUT => 4,
+        CURLOPT_CONNECTTIMEOUT => 3,
+        CURLOPT_TIMEOUT => 8,
         CURLOPT_FOLLOWLOCATION => true,
         CURLOPT_ENCODING => '',
     ]);
@@ -36,10 +39,20 @@ function fetchResellerProductsFast(string $baseUrl, string $apiKey, int $ttl = 6
     curl_close($ch);
 
     $data = $res ? json_decode($res, true) : null;
-    if ($code === 200 && is_array($data) && !empty($data['success']) && isset($data['data']) && is_array($data['data'])) {
-        $result = ['products' => $data['data'], 'error' => ''];
-        @file_put_contents($cacheFile, json_encode($result), LOCK_EX);
-        return $result;
+    if ($code >= 200 && $code < 300 && is_array($data)) {
+        $providerProducts = null;
+        if (isset($data['data']) && is_array($data['data'])) {
+            $providerProducts = $data['data'];
+        } elseif (isset($data['products']) && is_array($data['products'])) {
+            $providerProducts = $data['products'];
+        } elseif (isset($data['services']) && is_array($data['services'])) {
+            $providerProducts = $data['services'];
+        }
+        if ($providerProducts !== null && (!array_key_exists('success', $data) || !empty($data['success']))) {
+            $result = ['products' => $providerProducts, 'error' => ''];
+            @file_put_contents($cacheFile, json_encode($result), LOCK_EX);
+            return $result;
+        }
     }
 
     // If the provider is briefly unavailable, serve the last known cache instead of
@@ -52,10 +65,14 @@ function fetchResellerProductsFast(string $baseUrl, string $apiKey, int $ttl = 6
         }
     }
 
-    return [
-        'products' => [],
-        'error' => is_array($data) && !empty($data['message'])
-            ? (string) $data['message']
-            : ($curlError ? 'Services are temporarily unavailable.' : 'Services are temporarily unavailable.'),
-    ];
+    $providerMessage = is_array($data) && !empty($data['message']) ? (string) $data['message'] : '';
+    if ($code >= 400) {
+        $error = $providerMessage !== '' ? $providerMessage : 'Provider API returned HTTP ' . $code . '.';
+    } elseif ($curlError !== '') {
+        $error = 'Unable to reach the provider API: ' . $curlError;
+    } else {
+        $error = 'Provider API returned an invalid response.';
+    }
+    error_log('Provider API failure: HTTP ' . $code . '; URL=' . $baseUrl . '/api/reseller/products; error=' . $error);
+    return ['products' => [], 'error' => $error];
 }
