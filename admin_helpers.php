@@ -4,6 +4,7 @@ if (!defined('RESELLER_API_KEY')) {
 }
 require_once __DIR__ . '/init_db.php';
 require_once __DIR__ . '/auth_helpers.php';
+require_once __DIR__ . '/admin/includes/csrf.php';
 
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
@@ -40,7 +41,7 @@ function ensureDefaultAdminCredentials(): void {
             return;
         }
 
-        $hash = password_hash($password, PASSWORD_DEFAULT);
+        $hash = password_hash($password, PASSWORD_ARGON2ID);
         $st = $pdo->prepare(
             'INSERT INTO admin_accounts (id, email, password_hash, name)
              VALUES (1, ?, ?, ?)
@@ -178,7 +179,7 @@ function adminLogin(string $email, string $password): bool {
         try {
             $pdo = getDb();
             if ($pdo) {
-                $hash = password_hash($configuredPassword, PASSWORD_DEFAULT);
+                $hash = password_hash($configuredPassword, PASSWORD_ARGON2ID);
                 $st = $pdo->prepare(
                     'INSERT INTO admin_accounts (id, email, password_hash, name)
                      VALUES (1, ?, ?, ?)
@@ -221,6 +222,7 @@ function adminLogin(string $email, string $password): bool {
 function adminLogout(): void { unset($_SESSION['admin_logged_in'], $_SESSION['admin_role']); }
 
 function requireAdmin(): void {
+    if ($_SERVER['REQUEST_METHOD'] === 'POST') require_csrf();
     $base = rtrim(dirname($_SERVER['SCRIPT_NAME'] ?? ''), '/');
     $loginUrl = ($base !== '' ? $base . '/' : '') . 'login.php';
     if (!isAdminLoggedIn()) { header('Location: ' . $loginUrl); exit; }
