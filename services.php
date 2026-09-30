@@ -45,7 +45,7 @@ require __DIR__.'/includes/header.php';
 <?php foreach($items as $p): ?><article class="service-card" data-name="<?php echo htmlspecialchars(strtolower((string)$p['name'])); ?>" data-category="<?php echo htmlspecialchars($cat); ?>">
  <div class="service-image"><?php if($p['image_url']): ?><img src="<?php echo htmlspecialchars($p['image_url']); ?>" alt="" loading="lazy"><?php else: ?><span>◎</span><?php endif; ?></div>
  <div class="service-card-body"><h3><?php echo htmlspecialchars((string)$p['name']); ?></h3><div class="service-meta"><strong>₦<?php echo number_format((float)$p['amount'],2); ?></strong><span><?php echo (int)$p['in_stock']; ?> in stock</span></div>
- <?php if($currentUser): ?><form method="post" action="index.php"><input type="hidden" name="product_id" value="<?php echo (int)$p['id']; ?>"><input type="hidden" name="qty" value="1"><button class="service-buy" type="submit">Buy service <span>→</span></button></form>
+ <?php if($currentUser): ?><form method="post" action="index.php"><input type="hidden" name="product_id" value="<?php echo (int)$p['id']; ?>"><input type="hidden" name="product_ref" value="<?php echo htmlspecialchars((string)($p['product_ref'] ?? '')); ?>"><input type="hidden" name="qty" value="1"><button class="service-buy" type="submit">Buy service <span>→</span></button></form>
  <?php else: ?><a class="service-buy" href="login.php?redirect=<?php echo urlencode('services.php'); ?>">Sign in to order <span>→</span></a><?php endif; ?></div>
 </article><?php endforeach; ?>
 </div></section>
