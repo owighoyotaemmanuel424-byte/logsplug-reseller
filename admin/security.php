@@ -1,0 +1,8 @@
+<?php
+require_once __DIR__ . '/../admin_helpers.php'; requireAdmin();
+$adminPageTitle='Security Center'; $currentAdminPage='security';
+require __DIR__.'/includes/head.php'; require __DIR__.'/includes/header.php'; ?>
+<div class="master-dashboard"><div class="master-hero"><div><span class="master-kicker">SECURITY</span><h1>Security center</h1><p>Administrative security controls, authentication entry points and operational safeguards.</p></div><div class="master-hero-actions"><a class="btn btn-primary" href="master-login.php">Master login</a><a class="btn btn-secondary" href="audit.php">Audit log</a></div></div>
+<div class="master-grid"><div class="admin-card master-control-card"><h2>Authentication</h2><p>Use the existing protected administrator and master-key authentication flows.</p><div class="master-actions"><a href="login.php">Admin login</a><a href="master-login.php">Master login</a><a href="recover.php">Recovery</a></div></div><div class="admin-card master-control-card"><h2>Session protection</h2><p>Administrative sessions remain protected by the server-side auth layer.</p><div class="master-actions"><a href="logout.php">Sign out</a><a href="audit.php">Review audit</a></div></div><div class="admin-card master-control-card"><h2>Emergency operations</h2><p>Use provider, customer and order controls to contain operational issues.</p><div class="master-actions"><a href="providers.php">Provider control</a><a href="users.php">Customer controls</a><a href="reported_orders.php">Reported orders</a></div></div></div>
+<div class="admin-alert admin-alert-success">Security pages expose entry points and controls without displaying credentials or secret environment values.</div></div>
+<?php require __DIR__.'/includes/footer.php'; ?>
