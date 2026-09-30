@@ -41,7 +41,13 @@ try {
                 key TEXT PRIMARY KEY,
                 value TEXT
             )",
-            "CREATE TABLE IF NOT EXISTS admin_accounts (\n                id SMALLINT PRIMARY KEY CHECK (id = 1),\n                password_hash TEXT NOT NULL,\n                created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,\n                updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP\n            )",\n            "CREATE TABLE IF NOT EXISTS orders (
+            "CREATE TABLE IF NOT EXISTS admin_accounts (
+                id SMALLINT PRIMARY KEY CHECK (id = 1),
+                password_hash TEXT NOT NULL,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )",
+            "CREATE TABLE IF NOT EXISTS orders (
                 id BIGSERIAL PRIMARY KEY,
                 user_id BIGINT REFERENCES users(id) ON DELETE SET NULL,
                 product_id INTEGER NOT NULL,
