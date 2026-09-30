@@ -29,11 +29,10 @@ try{
         // Each country has its own provider endpoint, so fetch sequentially
         // and throttle between calls to stay below the provider limit.
         $numberResult=$p->allNumberServices($countries['countries']);
-        if($numberResult['services']){
+        if($numberResult['error']===''){
             $save('catalog_numbers_services',$numberResult['services']);
-        }
-        if($numberResult['error']!==''){
-            error_log('Logspanel number catalog warnings: '.$numberResult['error']);
+        } else {
+            error_log('Logspanel number catalog incomplete; keeping previous complete cache: '.$numberResult['error']);
         }
     }
 
@@ -46,11 +45,10 @@ try{
         // Fetch the complete boost catalog. If the unfiltered endpoint returns
         // no services, allBoostServices falls back to the documented categories.
         $boostResult=$p->allBoostServices($bc['categories']);
-        if($boostResult['services']){
+        if($boostResult['error']===''){
             $save('catalog_boost_services',$boostResult['services']);
-        }
-        if($boostResult['error']!==''){
-            error_log('Logspanel boost catalog warnings: '.$boostResult['error']);
+        } else {
+            error_log('Logspanel boost catalog incomplete; keeping previous complete cache: '.$boostResult['error']);
         }
     }
     echo "Catalog sync completed.\n";
