@@ -1,5 +1,8 @@
 <?php
-require_once __DIR__ . '/../admin_helpers.php';
+// Canonical admin entry point is login.php. First-admin initialization is
+// handled there so users never get trapped on a separate setup page.
+header('Location: login.php');
+exit;
 
 if (isAdminLoggedIn()) {
     header('Location: index.php');
