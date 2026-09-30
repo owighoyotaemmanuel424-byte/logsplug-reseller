@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/includes/naira.php';
 require_once __DIR__ . '/init_db.php';
 require_once __DIR__ . '/auth_helpers.php';
 requireLogin();
@@ -59,7 +60,7 @@ require __DIR__ . '/includes/header.php';
                             <td class="orders-table-date"><?php echo htmlspecialchars(date('M j, Y g:i A', strtotime($o['created_at']))); ?></td>
                             <td class="orders-table-product"><a href="order_details.php?id=<?php echo (int) $o['id']; ?>" class="order-product-link"><?php echo htmlspecialchars($o['product_name']); ?></a></td>
                             <td class="orders-table-qty"><?php echo (int) $o['qty']; ?></td>
-                            <td class="orders-table-total">₦<?php echo number_format((float) $o['total_amount'], 2); ?></td>
+                            <td class="orders-table-total"><?php echo htmlspecialchars(nairaFormat((string)$o['total_amount'])); ?></td>
                             <td class="orders-table-status">
                                 <?php if (!empty($o['replacement_status']) && $o['replacement_status'] === 'replaced'): ?>
                                     <span class="status-badge status-replaced">Replaced</span>
