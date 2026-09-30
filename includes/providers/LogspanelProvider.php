@@ -69,7 +69,25 @@ final class LogspanelProvider implements ProviderInterface
         $r=$this->request('GET','/numbers/services?country_id='.rawurlencode((string)$countryId));return ['services'=>is_array($r['data']['data']??null)?$r['data']['data']:[],'error'=>$r['ok']?'':$r['error']];
     }
     public function allNumberServices(array $countries):array{
-        $all=[];$errors=[];foreach($countries as $country){$id=(int)($country['id']??0);if($id<1)continue;$r=$this->numberServices($id);if($r['error']!==''){$errors[]='Country '.$id.': '.$r['error'];continue;}foreach($r['services'] as $s){if(!is_array($s))continue;$s['country_id']=$s['country_id']??$id;$s['country_name']=$s['country_name']??(string)($country['name']??'');$key=(string)$s['country_id'].':'.(string)($s['service_id']??$s['service_name']??'');$all[$key]=$s;}}return ['services'=>array_values($all),'error'=>implode(' | ',array_unique($errors))];
+        $all=[];$errors=[];$count=0;
+        foreach($countries as $country){
+            $id=(int)($country['id']??0);
+            if($id<1)continue;
+            $r=$this->numberServices($id);
+            $count++;
+            if($r['error']!==''){$errors[]='Country '.$id.': '.$r['error'];}
+            else foreach($r['services'] as $s){
+                if(!is_array($s))continue;
+                $s['country_id']=$s['country_id']??$id;
+                $s['country_name']=$s['country_name']??(string)($country['name']??'');
+                $key=(string)$s['country_id'].':'.(string)($s['service_id']??$s['service_name']??'');
+                $all[$key]=$s;
+            }
+            // Keep the aggregate catalog sync safely below the provider's
+            // 60 requests/minute limit even when many countries are enabled.
+            if($count< count($countries)) sleep(2);
+        }
+        return ['services'=>array_values($all),'error'=>implode(' | ',array_unique($errors))];
     }
     public function boostCategories():array{
         $r=$this->request('GET','/boost/categories');return ['categories'=>is_array($r['data']['data']??null)?$r['data']['data']:[],'error'=>$r['ok']?'':$r['error']];
