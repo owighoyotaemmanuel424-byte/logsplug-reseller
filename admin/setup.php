@@ -46,8 +46,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $pdo->exec('SELECT pg_advisory_xact_lock(91827364)');
 
             // Re-check inside the transaction to reduce first-setup races.
-            $check = getSetting('admin_password_hash');
-            if ($check !== null && $check !== '') {
+            $check = $pdo->query('SELECT password_hash FROM admin_accounts WHERE id = 1 LIMIT 1');
+            $existingHash = $check ? $check->fetchColumn() : false;
+
+            // Migrate a legacy settings-based admin password if one exists.
+            if (!is_string($existingHash) || $existingHash === '') {
+                $legacy = $pdo->prepare('SELECT value FROM settings WHERE key = ? LIMIT 1');
+                $legacy->execute(['admin_password_hash']);
+                $existingHash = $legacy->fetchColumn();
+            }
+
+            if (is_string($existingHash) && $existingHash !== '') {
                 $pdo->rollBack();
                 header('Location: login.php');
                 exit;
@@ -55,10 +64,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             $hash = password_hash($password, PASSWORD_DEFAULT);
             $st = $pdo->prepare(
+                'INSERT INTO admin_accounts (id, password_hash)
+                 VALUES (1, ?)
+                 ON CONFLICT (id) DO UPDATE SET password_hash = EXCLUDED.password_hash,
+                                                updated_at = CURRENT_TIMESTAMP'
+            );
+            $st->execute([$hash]);
+
+            // Keep the legacy setting synchronized for compatibility with older code.
+            $legacySt = $pdo->prepare(
                 'INSERT INTO settings (key, value) VALUES (?, ?)
                  ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value'
             );
-            $st->execute(['admin_password_hash', $hash]);
+            $legacySt->execute(['admin_password_hash', $hash]);
 
             $pdo->commit();
 
