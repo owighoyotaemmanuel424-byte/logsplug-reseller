@@ -139,3 +139,15 @@ function reportOrder(int $orderId,int $userId,string $reason):?string {
  $st=db()->prepare('UPDATE orders SET reported_at=CURRENT_TIMESTAMP,report_reason=? WHERE id=? AND user_id=? AND reported_at IS NULL AND created_at>=CURRENT_TIMESTAMP-INTERVAL \'2 hours\'');
  $st->execute([substr(trim($reason),0,500),$orderId,$userId]);return $st->rowCount()===1?null:'Unable to report this order.';
 }
+
+function deductWalletBalance(int $userId,string $amount):bool {
+ $amount=nairaDecimal($amount);$pdo=db();$pdo->beginTransaction();
+ try{
+  $st=$pdo->prepare('SELECT wallet_balance FROM users WHERE id=? FOR UPDATE');$st->execute([$userId]);$balance=$st->fetchColumn();
+  if($balance===false||nairaKobo((string)$balance)<nairaKobo($amount)){$pdo->rollBack();return false;}
+  $ref='legacy-debit-'.bin2hex(random_bytes(8));
+  $pdo->prepare('INSERT INTO wallet_transactions(user_id,type,amount_kobo,reference,description) VALUES(?,?,?,?,?)')->execute([$userId,'debit',nairaKobo($amount),$ref,'Wallet debit']);
+  $pdo->prepare('UPDATE users SET wallet_balance=wallet_balance-? WHERE id=?')->execute([$amount,$userId]);
+  $pdo->commit();return true;
+ }catch(Throwable $e){if($pdo->inTransaction())$pdo->rollBack();return false;}
+}
