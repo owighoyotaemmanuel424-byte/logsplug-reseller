@@ -1,0 +1,8 @@
+<?php
+require_once __DIR__ . '/../admin_helpers.php'; requireAdmin();
+$adminPageTitle='Wallets & Ledger'; $currentAdminPage='wallets';
+$rows=[]; try{$pdo=getDb(); if($pdo){$st=$pdo->query("SELECT id,email,balance FROM users ORDER BY balance DESC NULLS LAST LIMIT 50"); $rows=$st?$st->fetchAll(PDO::FETCH_ASSOC):[];}}catch(Throwable $e){error_log('Wallets read warning: '.$e->getMessage());}
+require __DIR__.'/includes/head.php'; require __DIR__.'/includes/header.php'; ?>
+<div class="master-dashboard"><div class="master-hero"><div><span class="master-kicker">FINANCIAL CONTROL</span><h1>Wallets &amp; ledger</h1><p>Review customer wallet balances and keep financial operations visible from one place.</p></div><div class="master-hero-actions"><a class="btn btn-primary" href="funding.php">Funding queue</a><a class="btn btn-secondary" href="transactions.php">Transactions</a></div></div>
+<div class="admin-card"><h2 class="admin-card-title">Customer wallet balances</h2><p class="admin-card-desc">Read-only overview. Existing wallet funding controls remain in the customer and funding workflows.</p><div class="admin-table-wrap"><table class="admin-table"><thead><tr><th>ID</th><th>Customer</th><th>Balance</th><th>Action</th></tr></thead><tbody><?php foreach($rows as $r): ?><tr><td>#<?=(int)$r['id']?></td><td><?=htmlspecialchars($r['email']??'—')?></td><td class="admin-amount">₦<?=number_format((float)($r['balance']??0),2)?></td><td><a class="btn btn-secondary" href="users.php">Manage customer</a></td></tr><?php endforeach; if(!$rows): ?><tr><td colspan="4">No wallet records available.</td></tr><?php endif; ?></tbody></table></div></div></div>
+<?php require __DIR__.'/includes/footer.php'; ?>
