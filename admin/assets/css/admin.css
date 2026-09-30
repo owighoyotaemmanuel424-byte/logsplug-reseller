@@ -404,3 +404,39 @@ html { overflow-x:hidden; }
   .admin-stat-value { font-size: 1.4rem; }
   .admin-login-brand .page-title { font-size: 1.45rem; }
 }
+
+
+/* Default-hidden admin navigation */
+.admin-body.admin-sidebar-collapsed .admin-sidebar {
+    width: 0;
+    transform: translateX(-100%);
+    box-shadow: none;
+}
+.admin-body.admin-sidebar-collapsed .admin-main {
+    margin-left: 0;
+}
+.admin-body.admin-sidebar-collapsed .admin-brand-text,
+.admin-body.admin-sidebar-collapsed .admin-sidebar-balance,
+.admin-body.admin-sidebar-collapsed .admin-nav-label {
+    opacity: 0;
+    pointer-events: none;
+    width: 0;
+    overflow: hidden;
+}
+.admin-body.admin-sidebar-collapsed .admin-brand,
+.admin-body.admin-sidebar-collapsed .admin-nav a,
+.admin-body.admin-sidebar-collapsed .admin-sidebar-footer a {
+    visibility: hidden;
+}
+@media (min-width:769px) {
+    .admin-sidebar {
+        transition: width .22s ease, transform .22s ease, box-shadow .22s ease;
+    }
+    .admin-body:not(.admin-sidebar-collapsed) .admin-sidebar {
+        width: var(--admin-sidebar-w);
+        transform: translateX(0);
+    }
+    .admin-body:not(.admin-sidebar-collapsed) .admin-main {
+        margin-left: var(--admin-sidebar-w);
+    }
+}
