@@ -17,7 +17,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($isAdmin) {
             setSetting('markup_percent', (string)(floatval($_POST['markup_percent'] ?? 0)));
         }
-        setSetting('admin_extra_amount', (string)(floatval($_POST['admin_extra_amount'] ?? 0)));
+        $extra=trim((string)($_POST['admin_extra_amount'] ?? '0')); if(!preg_match('/^\\d+(?:\\.\\d{1,2})?$/',$extra)){$extra='0.00';} setSetting('admin_extra_amount',$extra);
         if (!empty($_FILES['logo']['name']) && $_FILES['logo']['error'] === UPLOAD_ERR_OK) {
             $allowed = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
             $finfo = finfo_open(FILEINFO_MIME_TYPE);
