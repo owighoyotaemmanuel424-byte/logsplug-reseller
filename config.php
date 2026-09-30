@@ -1,7 +1,7 @@
 <?php
 // Runtime configuration. Set these as server environment variables in production.
 define('RESELLER_API_KEY', getenv('RESELLER_API_KEY') ?: '');
-define('API_BASE_URL', rtrim(getenv('API_BASE_URL') ?: 'http://127.0.0.1:8001', '/'));
+define('API_BASE_URL', rtrim(getenv('API_BASE_URL') ?: 'https://loggsplug.shop', '/'));
 define('MARKUP_PERCENT', (float) (getenv('MARKUP_PERCENT') ?: 10));
 define('SITE_TITLE', getenv('SITE_TITLE') ?: 'My Reseller Store');
 define('BUSINESS_NAME', getenv('BUSINESS_NAME') ?: 'My Reseller Store');
