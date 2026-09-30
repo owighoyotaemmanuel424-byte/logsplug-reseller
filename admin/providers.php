@@ -1,49 +1,20 @@
 <?php
-require_once __DIR__ . '/../admin_helpers.php';
+declare(strict_types=1);
+require_once __DIR__.'/../admin_helpers.php';
+require_once __DIR__.'/../includes/providers/ProviderRegistry.php';
 requireAdmin();
-
-$adminPageTitle = 'Provider Control';
-$currentAdminPage = 'providers';
-$provider = getResellerProviderStatus();
-$balance = $provider['balance'];
-
-require __DIR__ . '/includes/head.php';
-require __DIR__ . '/includes/header.php';
+$adminPageTitle='Providers';$currentAdminPage='providers';
+$providers=[];
+foreach(ProviderRegistry::ids() as $id){
+ try{$p=ProviderRegistry::get($id);$providers[]=['id'=>$id,'schema'=>$p->schema(),'health'=>$p->health(),'balance'=>$p->walletBalance()];}
+ catch(Throwable $e){$providers[]=['id'=>$id,'schema'=>ProviderRegistry::schema($id),'health'=>['ok'=>false,'message'=>'Provider unavailable'],'balance'=>null];}
+}
+require __DIR__.'/includes/head.php';require __DIR__.'/includes/header.php';
 ?>
-<div class="master-dashboard">
-<div class="master-hero"><div><span class="master-kicker">PROVIDER OPERATIONS</span><h1>Provider control</h1><p>Configure the Logspanel API without editing Render environment variables.</p></div><div class="master-hero-actions"><a class="btn btn-secondary" href="settings.php">Site settings</a><a class="btn btn-secondary" href="../services.php" target="_blank" rel="noopener">View catalog</a></div></div>
-
-<div class="master-stats">
-<div class="master-stat master-stat-primary"><span class="master-stat-icon">◎</span><div><span>Provider balance</span><strong><?=$balance !== null ? '₦'.number_format($balance, 2) : '—'?></strong></div><small><?=$provider['connected'] ? 'Connected' : 'Not connected'?></small></div>
-<div class="master-stat"><span class="master-stat-icon">▤</span><div><span>Provider</span><strong>Logspanel</strong></div><small>API v1</small></div>
+<div class="master-dashboard"><div class="master-hero"><div><span class="master-kicker">PROVIDER OPERATIONS</span><h1>Providers</h1><p>All provider integrations are discovered from their schema and implementation files.</p></div></div>
+<div class="master-actions"><?php foreach($providers as $p):?><a href="provider_edit.php?id=<?=rawurlencode($p['id'])?>"><?=htmlspecialchars((string)$p['schema']['label'])?> ↗</a><?php endforeach;?></div>
+<?php foreach($providers as $p):?>
+<div class="admin-card" style="margin-top:16px;"><div style="display:flex;justify-content:space-between;gap:16px;align-items:center;"><div><h2 class="admin-card-title"><?=htmlspecialchars((string)$p['schema']['label'])?></h2><p><?=!empty($p['health']['ok'])?'Connected':'Not connected'?><?php if($p['balance']!==null):?> · <?=htmlspecialchars(nairaFormat((string)$p['balance']))?><?php endif;?></p></div><a class="btn btn-primary" href="provider_edit.php?id=<?=rawurlencode($p['id'])?>">Configure</a></div></div>
+<?php endforeach;?>
 </div>
-
-<?php if (!empty($_GET['saved'])): ?>
-<div class="alert alert-success" style="margin-top:16px;"><strong>Saved.</strong> Provider settings have been updated.</div>
-<?php endif; ?>
-<?php if (!empty($_GET['error'])): ?>
-<div class="alert alert-error" style="margin-top:16px;"><strong>Not saved:</strong> <?=htmlspecialchars((string)$_GET['error'])?></div>
-<?php endif; ?>
-
-<div class="admin-card" style="margin-top:16px;">
-<h2 class="admin-card-title">Logspanel API</h2>
-<p style="margin-top:0;color:#667085;">The API key is stored server-side. It is never displayed after saving.</p>
-<form method="post" action="provider_save.php" autocomplete="off">
-<label for="api_base_url">API base URL</label>
-<input id="api_base_url" name="api_base_url" type="url" value="<?=htmlspecialchars((string)API_BASE_URL)?>" required>
-<label for="api_key" style="margin-top:12px;">Logspanel API key</label>
-<input id="api_key" name="api_key" type="password" placeholder="<?=RESELLER_API_KEY !== '' ? 'Saved — enter a new key to replace it' : 'Paste your Logspanel API key'?>" autocomplete="new-password">
-<label style="display:flex;gap:8px;align-items:center;margin-top:12px;"><input type="checkbox" name="clear_key" value="1"> Remove saved API key</label>
-<button class="btn btn-primary" type="submit" style="margin-top:16px;">Save provider settings</button>
-</form>
-</div>
-
-<?php if (!$provider['connected']): ?>
-<div class="alert alert-error" style="margin-top:16px;"><strong>Connection:</strong> <?=htmlspecialchars($provider['message'])?></div>
-<?php else: ?>
-<div class="alert alert-success" style="margin-top:16px;"><strong>Connection:</strong> Logspanel API is responding.</div>
-<?php endif; ?>
-
-<div class="admin-card" style="margin-top:16px;"><h2 class="admin-card-title">Provider controls</h2><div class="master-actions"><a href="../services.php" target="_blank" rel="noopener">Service catalog ↗</a><a href="orders.php">Order monitoring</a><a href="reported_orders.php">Provider issues</a></div></div>
-</div>
-<?php require __DIR__ . '/includes/footer.php'; ?>
+<?php require __DIR__.'/includes/footer.php';?>
