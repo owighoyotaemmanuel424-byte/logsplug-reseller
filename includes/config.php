@@ -16,25 +16,18 @@ define('LOGO_URL', getenv('LOGO_URL') ?: '');
 function createDatabaseConnection(bool $direct = false): PDO
 {
     $url = trim((string)($direct ? DATABASE_URL_DIRECT : DATABASE_URL));
-    if ($url === '') throw new RuntimeException('DATABASE_URL is not configured.');
-    if (!preg_match('#^postgres(?:ql)?://#i', $url)) throw new RuntimeException('PostgreSQL DATABASE_URL is required.');
-
-    $parts = parse_url($url);
-    if (!is_array($parts) || empty($parts['host']) || empty($parts['user']) || empty($parts['path'])) {
-        throw new RuntimeException('Invalid PostgreSQL connection URL.');
-    }
-    if (!$direct && strpos((string)$parts['host'], '-pooler') === false) {
-        throw new RuntimeException('DATABASE_URL must use the Neon pooled hostname.');
-    }
-    if ($direct && strpos((string)$parts['host'], '-pooler') !== false) {
-        throw new RuntimeException('DATABASE_URL_DIRECT must use the non-pooled Neon hostname.');
-    }
-
-    $dsn = 'pgsql:host='.$parts['host'].';port='.(int)($parts['port'] ?? 5432).';dbname='.ltrim((string)$parts['path'], '/').';sslmode=require';
-    return new PDO($dsn, urldecode((string)$parts['user']), urldecode((string)($parts['pass'] ?? '')), [
-        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-        PDO::ATTR_EMULATE_PREPARES => true,
-        PDO::ATTR_PERSISTENT => false,
+    if ($url === '') throw new RuntimeException('Database connection is not configured.');
+    if (!preg_match('#^postgres(?:ql)?://#i', $url)) throw new RuntimeException('PostgreSQL is required.');
+    $parts=parse_url($url);
+    if(!is_array($parts)||empty($parts['host'])||empty($parts['user'])||empty($parts['path'])) throw new RuntimeException('Invalid PostgreSQL URL.');
+    $host=(string)$parts['host'];
+    if(!$direct && strpos($host,'-pooler')===false) throw new RuntimeException('DATABASE_URL must use a Neon pooled hostname.');
+    if($direct && strpos($host,'-pooler')!==false) throw new RuntimeException('DATABASE_URL_DIRECT must use a non-pooled hostname.');
+    $dsn='pgsql:host='.$host.';port='.(int)($parts['port']??5432).';dbname='.ltrim((string)$parts['path'],'/').';sslmode=require';
+    return new PDO($dsn,urldecode((string)$parts['user']),urldecode((string)($parts['pass']??'')),[
+        PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION,
+        PDO::ATTR_DEFAULT_FETCH_MODE=>PDO::FETCH_ASSOC,
+        PDO::ATTR_EMULATE_PREPARES=>true,
+        PDO::ATTR_PERSISTENT=>false,
     ]);
 }
