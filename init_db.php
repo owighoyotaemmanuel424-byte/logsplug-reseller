@@ -9,6 +9,13 @@ if (!file_exists(__DIR__ . '/config.php')) {
 }
 require_once __DIR__ . '/config.php';
 
+// Schema initialization is performed by docker-entrypoint.sh at container startup.
+// Do not run DDL/advisory-lock setup on normal web requests; it adds latency to
+// every page that includes admin_helpers.php or auth_helpers.php.
+if (PHP_SAPI !== 'cli' && strtolower((string) getenv('RUN_DB_INIT_ON_REQUEST')) !== 'true') {
+    return;
+}
+
 if (!function_exists('createDatabaseConnection')) {
     return;
 }
