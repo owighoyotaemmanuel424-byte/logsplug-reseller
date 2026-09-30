@@ -2,6 +2,8 @@
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/auth_helpers.php';
 require_once __DIR__ . '/includes/logspanel_api.php';
+require_once __DIR__ . '/includes/naira.php';
+require_once __DIR__ . '/includes/product_api.php';
 
 $currentUser = function_exists('getCurrentUser') ? getCurrentUser() : null;
 $apiKey = defined('RESELLER_API_KEY') ? RESELLER_API_KEY : '';
@@ -9,6 +11,11 @@ $baseUrl = rtrim(defined('API_BASE_URL') ? API_BASE_URL : '', '/');
 $markup = (float)(function_exists('getSetting') && getSetting('markup_percent') !== null ? getSetting('markup_percent') : (defined('MARKUP_PERCENT') ? MARKUP_PERCENT : 0));
 $adminExtra = (float)(function_exists('getSetting') && getSetting('admin_extra_amount') !== null ? getSetting('admin_extra_amount') : 0);
 $businessName = (function_exists('getSetting') && getSetting('business_name')) ? getSetting('business_name') : (defined('BUSINESS_NAME') ? BUSINESS_NAME : 'Store');
+
+$currentUser = getCurrentUser();
+$markup = getSetting('markup_percent') ?? MARKUP_PERCENT;
+$adminExtra = getSetting('admin_extra_amount') ?? '0.00';
+$businessName = getSetting('business_name') ?: BUSINESS_NAME;
 
 $products = [];
 $logsError = '';
@@ -19,34 +26,29 @@ $boostCategories = [];
 $boostServices = [];
 $boostError = '';
 
-if ($apiKey && $baseUrl) {
-    $logResult = logspanelFetchLogCatalog();
-    $products = $logResult['products'];
-    $logsError = $logResult['error'];
-
+$logResult = fetchResellerProductsFast();
+$products = $logResult['products'];
+$logsError = $logResult['error'];
+try {
     $countryResult = logspanelFetchNumberCountries();
     $numberCountries = $countryResult['countries'];
     $numberError = $countryResult['error'];
-
     $numberResult = logspanelFetchAllNumberServices($numberCountries);
     $numberServices = $numberResult['services'];
     if ($numberResult['error'] !== '') $numberError = trim($numberError . ' | ' . $numberResult['error'], ' |');
-
     $boostCatResult = logspanelFetchBoostCategories();
     $boostCategories = $boostCatResult['categories'];
     $boostError = $boostCatResult['error'];
-
     $boostResult = logspanelFetchAllBoostServices($boostCategories);
     $boostServices = $boostResult['services'];
     if ($boostResult['error'] !== '') $boostError = $boostError !== '' ? $boostError . ' | ' . $boostResult['error'] : $boostResult['error'];
-} else {
-    $logsError = 'Logspanel API configuration is incomplete.';
+} catch (Throwable $e) {
+    $numberError = $numberError ?: $e->getMessage();
 }
-
 $categories = [];
 foreach ($products as $p) {
     $cat = trim((string)($p['category'] ?? '')) ?: 'Other';
-    $p['amount'] = round((float)$p['reseller_price'] * (1 + $markup / 100) + $adminExtra, 2);
+    $p['amount'] = nairaAdd((string)$p['selling_price'], (string)$adminExtra);
     $p['image_url'] = (string)($p['image_url'] ?? '');
     $categories[$cat][] = $p;
 }
@@ -84,7 +86,7 @@ require __DIR__ . '/includes/header.php';
 <div class="service-grid">
 <?php foreach($items as $p): ?><article class="service-card" data-name="<?php echo htmlspecialchars(strtolower((string)$p['name'])); ?>">
  <div class="service-image"><?php if($p['image_url']): ?><img src="<?php echo htmlspecialchars($p['image_url']); ?>" alt="" loading="lazy"><?php else: ?><span>◎</span><?php endif; ?></div>
- <div class="service-card-body"><h3><?php echo htmlspecialchars((string)$p['name']); ?></h3><p class="service-description"><?php echo htmlspecialchars((string)$p['description']); ?></p><div class="service-meta"><strong><?php echo htmlspecialchars((string)$p['currency']); ?> <?php echo number_format((float)$p['amount'],2); ?></strong><span><?php echo (int)$p['available_quantity']; ?> available</span></div>
+ <div class="service-card-body"><h3><?php echo htmlspecialchars((string)$p['name']); ?></h3><p class="service-description"><?php echo htmlspecialchars((string)$p['description']); ?></p><div class="service-meta"><strong><?php echo htmlspecialchars((string)$p['currency']); ?> <?php echo htmlspecialchars(nairaFormat((string)$p['amount'])); ?></strong><span><?php echo (int)$p['available_quantity']; ?> available</span></div>
  <?php if($currentUser): ?><form method="post" action="index.php"><input type="hidden" name="product_id" value="<?php echo (int)$p['id']; ?>"><input type="hidden" name="product_ref" value="<?php echo htmlspecialchars((string)($p['product_ref'] ?? '')); ?>"><input type="hidden" name="qty" value="<?php echo (int)$p['min_quantity']; ?>"><button class="service-buy" type="submit">Buy service <span>→</span></button></form>
  <?php else: ?><a class="service-buy" href="login.php?redirect=<?php echo urlencode('services.php'); ?>">Sign in to order <span>→</span></a><?php endif; ?></div>
 </article><?php endforeach; ?>
@@ -98,8 +100,8 @@ require __DIR__ . '/includes/header.php';
 <?php if(!$numberServices): ?><div class="services-empty"><h2>No number services available</h2><p>Number inventory may currently be unavailable.</p></div>
 <?php else: ?>
 <div class="service-grid">
-<?php foreach($numberServices as $s): if(!is_array($s)) continue; $countryId=(string)($s['country_id']??''); $price=(float)($s['price']??0); $amount=round($price*(1+$markup/100)+$adminExtra,2); ?>
-<article class="service-card"><div class="service-image"><span>☎</span></div><div class="service-card-body"><h3><?php echo htmlspecialchars((string)($s['service_name']??'Number service')); ?></h3><p class="service-description"><?php echo htmlspecialchars((string)($s['category']??'Activation')); ?> · <?php echo htmlspecialchars($numberCountryNames[$countryId]??(string)($s['country_name']??'Unknown country')); ?></p><div class="service-meta"><strong><?php echo htmlspecialchars((string)($s['currency']??'NGN')); ?> <?php echo number_format($amount,2); ?></strong><span><?php echo (int)($s['available_quantity']??0); ?> available</span></div><div class="catalog-note">Country ID: <?php echo htmlspecialchars($countryId); ?> · Service ID: <?php echo htmlspecialchars((string)($s['service_id']??'')); ?></div></div></article>
+<?php foreach($numberServices as $s): if(!is_array($s)) continue; $countryId=(string)($s['country_id']??''); $price=(string)($s['price']??'0'); $amount=nairaAdd($price,(string)$adminExtra); ?>
+<article class="service-card"><div class="service-image"><span>☎</span></div><div class="service-card-body"><h3><?php echo htmlspecialchars((string)($s['service_name']??'Number service')); ?></h3><p class="service-description"><?php echo htmlspecialchars((string)($s['category']??'Activation')); ?> · <?php echo htmlspecialchars($numberCountryNames[$countryId]??(string)($s['country_name']??'Unknown country')); ?></p><div class="service-meta"><strong><?php echo htmlspecialchars((string)($s['currency']??'NGN')); ?> <?php echo htmlspecialchars(nairaFormat((string)$amount)); ?></strong><span><?php echo (int)($s['available_quantity']??0); ?> available</span></div><div class="catalog-note">Country ID: <?php echo htmlspecialchars($countryId); ?> · Service ID: <?php echo htmlspecialchars((string)($s['service_id']??'')); ?></div></div></article>
 <?php endforeach; ?>
 </div>
 <?php endif; ?>
