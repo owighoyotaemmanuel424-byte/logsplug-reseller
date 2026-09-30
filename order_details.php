@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/includes/naira.php';
 require_once __DIR__ . '/init_db.php';
 require_once __DIR__ . '/auth_helpers.php';
 requireLogin();
@@ -79,7 +80,7 @@ require __DIR__ . '/includes/header.php';
             </tr>
             <tr>
                 <th>Total</th>
-                <td>₦<?php echo number_format((float) $order['total_amount'], 2); ?></td>
+                <td><?php echo htmlspecialchars(nairaFormat((string)$order['total_amount'])); ?></td>
             </tr>
             <tr>
                 <th>Status</th>
