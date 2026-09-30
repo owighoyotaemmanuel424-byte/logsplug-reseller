@@ -39,14 +39,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$noDb) {
     <title>Admin login – Reseller Admin</title>
     <link rel="stylesheet" href="../assets/css/style.css">
     <link rel="stylesheet" href="assets/css/admin.css">
-    <style>
-        .admin-login-card { max-width: 520px; margin: 7vh auto 0; }
-        .admin-login-brand { text-align:center; margin-bottom:24px; }
-        .admin-login-brand .page-title { margin-bottom:8px; }
-        .admin-login-subtitle { color:#667085; margin:0; }
-        .admin-form .btn { width:100%; }
-    </style>
-</head>
+    </head>
 <body>
 <div class="site-wrap narrow admin-login-card">
     <div class="auth-card">
