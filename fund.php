@@ -8,8 +8,9 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
  $amount=trim((string)($_POST['amount']??''));
  try{
   $amount=nairaDecimal($amount);if(nairaKobo($amount)<100)throw new InvalidArgumentException('Minimum funding amount is ₦1.00.');
-  $ref=createFundRequest((int)$user['id'],$amount);if($ref===null)throw new RuntimeException('Could not create funding request.');
-  $r=ProviderRegistry::get('sprintpay')->createPayment(['amount'=>$amount,'reference'=>$ref,'email'=>(string)$user['email'],'callback_url'=>APP_URL.'/fund_callback.php'],$ref);
+  $created=createFundRequest((int)$user['id'],$amount);if($created===null)throw new RuntimeException('Could not create funding request.');
+  [$ref,$callbackToken]=array_pad(explode('|',$created,2),2,'');
+  $r=ProviderRegistry::get('sprintpay')->createPayment(['amount'=>$amount,'reference'=>$ref,'email'=>(string)$user['email'],'callback_url'=>APP_URL.'/fund_callback.php?token='.rawurlencode($callbackToken)],$ref);
   if(!$r['ok'])throw new RuntimeException($r['error']);
   $redirect=(string)$r['data']['redirect_url'];
   header('Location: '.$redirect);exit;
