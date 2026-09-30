@@ -29,7 +29,9 @@ final class LogspanelProvider implements ProviderInterface
         if(!$key) return ['ok'=>false,'status'=>0,'data'=>null,'error'=>'Provider credential is not configured.'];
         $headers=['Accept: application/json','Authorization: Bearer '.$key,'Content-Type: application/json','User-Agent: LogsPlug-Reseller/2.0'];
         if($idempotency)$headers[]='Idempotency-Key: '.$idempotency;
-        $r=httpRequest($method,$this->base().'/'.ltrim($path,'/'),$headers,$payload===null?null:json_encode($payload,JSON_UNESCAPED_SLASHES),20);
+        // Pagination links from Logspanel may be absolute URLs. Never prepend the API base to one.
+        $url=preg_match('#^https?://#i',trim($path)) ? trim($path) : $this->base().'/'.ltrim($path,'/');
+        $r=httpRequest($method,$url,$headers,$payload===null?null:json_encode($payload,JSON_UNESCAPED_SLASHES),20);
         $ok=$r['status']>=200&&$r['status']<300;
         if(!$ok) {
             $message=is_array($r['json'])?(string)($r['json']['message']??'Provider request failed.'):'Provider request failed.';
