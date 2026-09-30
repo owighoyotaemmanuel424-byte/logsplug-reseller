@@ -8,5 +8,12 @@ a2enconf servername >/dev/null
 apache2ctl -t
 echo "Running PostgreSQL migrations..."
 php /var/www/html/init_db.php
+echo "Starting background cron dispatcher..."
+(
+    while true; do
+        php /var/www/html/cron/dispatch.php 2>&1 || true
+        sleep 900
+    done
+) &
 echo "Starting Apache on 0.0.0.0:${PORT}"
 exec apache2-foreground
