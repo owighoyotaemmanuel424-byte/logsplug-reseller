@@ -109,8 +109,8 @@ function getWalletTransactionsPaginated(int $userId,int $page=1,int $perPage=20)
 
 function createFundRequest(int $userId,string|int $amount):?string {
  $amount=nairaDecimal((string)$amount);if(nairaKobo($amount)<100)return null;
- $ref='fund-'.bin2hex(random_bytes(12));$pdo=db();
- try{$pdo->prepare('INSERT INTO fund_requests(user_id,amount,reference) VALUES(?,?,?)')->execute([$userId,$amount,$ref]);return $ref;}
+ $ref='fund-'.bin2hex(random_bytes(12));$token=bin2hex(random_bytes(32));$pdo=db();
+ try{$pdo->prepare('INSERT INTO fund_requests(user_id,amount,reference,callback_token_hash) VALUES(?,?,?,?)')->execute([$userId,$amount,$ref,hash('sha256',$token)]);return $ref.'|'.$token;}
  catch(Throwable $e){error_log('Fund request failed: '.$e->getMessage());return null;}
 }
 
