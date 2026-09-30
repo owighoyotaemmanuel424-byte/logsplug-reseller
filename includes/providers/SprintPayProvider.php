@@ -19,9 +19,18 @@ final class SprintPayProvider implements ProviderInterface
     public function createOrder(array $payload,string $idempotencyKey):array{return $this->unsupported();}
     public function getOrder(string $providerRef):array{return $this->unsupported();}
     public function createPayment(array $payload,string $idempotencyKey):array{
-        $key=$this->secret(); if(!$key)return ['ok'=>false,'status'=>0,'data'=>null,'error'=>'SprintPay credential is not configured.'];
-        $payload['reference']=$payload['reference']??$idempotencyKey;
-        return ['ok'=>true,'status'=>200,'data'=>['redirect_url'=>$this->base().'/pay?amount='.rawurlencode((string)$payload['amount']).'&key='.rawurlencode($key).'&ref='.rawurlencode((string)$payload['reference']).'&email='.rawurlencode((string)($payload['email']??''))],'error'=>''];
+        $key=$this->secret();$endpoint=trim((string)($this->config['payment_endpoint']??''));
+        if(!$key||$endpoint==='')return ['ok'=>false,'status'=>0,'data'=>null,'error'=>'SprintPay server-side payment endpoint is not configured.'];
+        $body=json_encode([
+            'amount'=>(string)$payload['amount'],'reference'=>(string)($payload['reference']??$idempotencyKey),
+            'email'=>(string)($payload['email']??''),'callback_url'=>(string)($payload['callback_url']??($this->config['callback_url']??'')),
+        ],JSON_UNESCAPED_SLASHES);
+        $r=httpRequest('POST',$endpoint,['Accept: application/json','Authorization: Bearer '.$key,'Content-Type: application/json','Idempotency-Key: '.$idempotencyKey],$body,20);
+        $data=$r['json'];
+        if($r['status']<200||$r['status']>=300||!is_array($data))return ['ok'=>false,'status'=>$r['status'],'data'=>$data,'error'=>'SprintPay payment initiation failed.'];
+        $redirect=(string)($data['data']['redirect_url']??$data['redirect_url']??'');
+        if($redirect==='')return ['ok'=>false,'status'=>$r['status'],'data'=>$data,'error'=>'SprintPay did not return a hosted checkout URL.'];
+        return ['ok'=>true,'status'=>$r['status'],'data'=>['redirect_url'=>$redirect],'error'=>''];
     }
     public function verifyPayment(array $payload):array{return ['ok'=>false,'status'=>0,'data'=>null,'error'=>'Payment verification must be performed through the SprintPay webhook.'];}
 }
