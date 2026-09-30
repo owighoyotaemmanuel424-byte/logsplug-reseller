@@ -1,7 +1,7 @@
 <?php
 // Runtime configuration. Set these as server environment variables in production.
-define('RESELLER_API_KEY', getenv('RESELLER_API_KEY') ?: '');
-define('API_BASE_URL', rtrim(getenv('API_BASE_URL') ?: 'https://logspanel.com/api/v1', '/'));
+define('RESELLER_API_KEY', trim((string) (getenv('RESELLER_API_KEY') ?: '')));
+define('API_BASE_URL', rtrim((string) (getenv('API_BASE_URL') ?: 'https://logspanel.com/api/v1'), '/'));
 define('MARKUP_PERCENT', (float) (getenv('MARKUP_PERCENT') ?: 10));
 define('SITE_TITLE', getenv('SITE_TITLE') ?: 'My Reseller Store');
 define('BUSINESS_NAME', getenv('BUSINESS_NAME') ?: 'My Reseller Store');
@@ -19,6 +19,20 @@ define('ADMIN_SESSION_SECRET', (string) (getenv('ADMIN_SESSION_SECRET') ?: ''));
 define('SPRINTPAY_ENABLED', filter_var(getenv('SPRINTPAY_ENABLED') ?: 'false', FILTER_VALIDATE_BOOLEAN));
 define('SPRINTPAY_MERCHANT_ID', getenv('SPRINTPAY_MERCHANT_ID') ?: '');
 define('SPRINTPAY_CALLBACK_URL', getenv('SPRINTPAY_CALLBACK_URL') ?: '');
+
+// Admin-managed provider settings override environment defaults when present.
+try {
+    $providerPdo = createDatabaseConnection();
+    if ($providerPdo) {
+        $st = $providerPdo->prepare('SELECT key, value FROM settings WHERE key IN (?, ?)');
+        $st->execute(['provider_api_base_url', 'provider_api_key']);
+        $providerSettings = [];
+        foreach ($st->fetchAll(PDO::FETCH_ASSOC) as $row) $providerSettings[(string)$row['key']] = (string)$row['value'];
+        if (!empty($providerSettings['provider_api_base_url'])) define('API_BASE_URL', rtrim($providerSettings['provider_api_base_url'], '/'));
+        if (array_key_exists('provider_api_key', $providerSettings)) define('RESELLER_API_KEY', $providerSettings['provider_api_key']);
+    }
+} catch (Throwable $e) { error_log('Provider settings lookup warning: ' . $e->getMessage()); }
+
 
 function createDatabaseConnection(): ?PDO
 {
