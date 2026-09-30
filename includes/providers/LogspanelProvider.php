@@ -44,34 +44,45 @@ final class LogspanelProvider implements ProviderInterface
     public function schema():array{return ProviderSchema::load('logspanel');}
     public function health():array{ $r=$this->request('GET','/wallet'); return ['ok'=>$r['ok'],'status'=>$r['status'],'message'=>$r['error']!==''?$r['error']:'Connected'];}
     public function walletBalance():?string{ $r=$this->request('GET','/wallet'); return $r['ok']?nairaDecimal((string)($r['data']['data']['balance']??'0')):null; }
-    public function catalog():array{
-        // Logspanel documents /logs/products as the complete catalog representation.
-        // Request the maximum page size so a normal catalog needs the fewest API calls.
-        $items=[];$next='/logs/products?per_page=100&page=1';$seen=[];$expectedTotal=null;$lastPage=null;$pages=0;
+    private function paginated(string $path,int $delaySeconds=2):array{
+        $items=[];$next=$path;$seen=[];$expectedTotal=null;$lastPage=null;$pages=0;
         for($i=0;$next!==null&&$i<10000;$i++){
-            if(isset($seen[$next]))throw new RuntimeException('Provider pagination cycle.');
-            $seen[$next]=true;
-            $r=$this->request('GET',$next);
+            $key=(string)$next;
+            if(isset($seen[$key]))throw new RuntimeException('Provider pagination cycle.');
+            $seen[$key]=true;
+            $r=$this->request('GET',$key);
             if(!$r['ok'])throw new RuntimeException($r['error']);
-            $data=$r['data']['data']??[];
-            if(!is_array($data))throw new RuntimeException('Invalid catalog response.');
-            foreach($data as $item)if(is_array($item))$items[]=$item;
+            $pageData=$r['data']['data']??[];
+            if(!is_array($pageData))throw new RuntimeException('Invalid paginated provider response.');
+            foreach($pageData as $item)if(is_array($item))$items[]=$item;
             $pages++;
             $meta=is_array($r['data']['meta']??null)?$r['data']['meta']:[];
             if(isset($meta['total'])&&is_numeric($meta['total']))$expectedTotal=(int)$meta['total'];
             if(isset($meta['last_page'])&&is_numeric($meta['last_page']))$lastPage=(int)$meta['last_page'];
             $next=$r['data']['links']['next']??null;
-            // Provider limit is 60 requests/minute. Keep pagination safely below it.
-            if($next!==null) usleep(2000000);
+            if($next!==null&&$delaySeconds>0)sleep($delaySeconds);
         }
-        if($expectedTotal!==null&&count($items)<$expectedTotal){
-            throw new RuntimeException('Incomplete Logspanel catalog: received '.count($items).' of '.$expectedTotal.' products.');
-        }
-        if($lastPage!==null&&$pages<$lastPage){
-            throw new RuntimeException('Incomplete Logspanel catalog: stopped at page '.$pages.' of '.$lastPage.'.');
-        }
+        if($expectedTotal!==null&&count($items)<$expectedTotal)throw new RuntimeException('Incomplete Logspanel catalog: received '.count($items).' of '.$expectedTotal.'.');
+        if($lastPage!==null&&$pages<$lastPage)throw new RuntimeException('Incomplete Logspanel catalog: stopped at page '.$pages.' of '.$lastPage.'.');
         return $items;
     }
+
+    public function parentCategories():array{
+        $r=$this->request('GET','/logs/parent-categories');
+        return ['categories'=>is_array($r['data']['data']??null)?$r['data']['data']:[],'error'=>$r['ok']?'':$r['error']];
+    }
+
+    public function catalog():array{
+        // Logspanel v1 defines /logs/categories as the complete public catalog.
+        // Keep the category IDs opaque, including stable negative IDs.
+        return $this->paginated('/logs/categories?per_page=100&page=1',2);
+    }
+
+    public function productCatalog():array{
+        // Optional reference-based representation of the same inventory.
+        return $this->paginated('/logs/products?per_page=100&page=1',2);
+    }
+
     public function numberCountries():array{
         $r=$this->request('GET','/numbers/countries');return ['countries'=>is_array($r['data']['data']??null)?$r['data']['data']:[],'error'=>$r['ok']?'':$r['error']];
     }
