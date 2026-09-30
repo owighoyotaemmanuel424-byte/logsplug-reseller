@@ -14,7 +14,7 @@ if($direction==='credit'){
   $st=$pdo->prepare('SELECT wallet_balance FROM users WHERE id=? FOR UPDATE');$st->execute([$userId]);$balance=$st->fetchColumn();
   if($balance===false||nairaKobo((string)$balance)<nairaKobo($amount))throw new RuntimeException('Insufficient balance.');
   $ref='admin-debit-'.bin2hex(random_bytes(12));
-  $pdo->prepare('INSERT INTO wallet_transactions(user_id,type,amount_kobo,reference,description) VALUES(?,?,?,?,?)')->execute([$userId,'adjustment',-nairaKobo($amount),$ref,'Administrative wallet debit']);
+  $pdo->prepare('INSERT INTO wallet_transactions(user_id,type,amount_kobo,reference,description) VALUES(?,?,?,?,?)')->execute([$userId,'debit',nairaKobo($amount),$ref,'Administrative wallet debit']);
   $pdo->prepare('UPDATE users SET wallet_balance=wallet_balance-? WHERE id=?')->execute([$amount,$userId]);$pdo->commit();
  }catch(Throwable $e){if($pdo->inTransaction())$pdo->rollBack();http_response_code(409);exit('Wallet adjustment failed.');}
 }
