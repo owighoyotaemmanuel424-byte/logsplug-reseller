@@ -222,10 +222,10 @@ function adminLogin(string $email, string $password): bool {
 function adminLogout(): void { unset($_SESSION['admin_logged_in'], $_SESSION['admin_role']); }
 
 function requireAdmin(): void {
-    if ($_SERVER['REQUEST_METHOD'] === 'POST') require_csrf();
     $base = rtrim(dirname($_SERVER['SCRIPT_NAME'] ?? ''), '/');
     $loginUrl = ($base !== '' ? $base . '/' : '') . 'login.php';
     if (!isAdminLoggedIn()) { header('Location: ' . $loginUrl); exit; }
+    if ($_SERVER['REQUEST_METHOD'] === 'POST') require_csrf();
 }
 
 function getAdminStats(): array {
