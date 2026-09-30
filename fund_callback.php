@@ -35,6 +35,11 @@ if ($raw !== false && $raw !== '' && trim($raw) !== '') {
 }
 $input = array_merge($jsonBody, $_GET, $_POST);
 $reference = trim((string)($input['order_id'] ?? $input['ref'] ?? $input['trans_id'] ?? $input['reference'] ?? $input['referenceid'] ?? $input['reference_id'] ?? ''));
+$callbackToken = trim((string)($input['token'] ?? ''));
+if($reference!=='' && $callbackToken!==''){
+ $st=$pdo->prepare('SELECT callback_token_hash FROM fund_requests WHERE reference=? LIMIT 1');$st->execute([$reference]);$hash=$st->fetchColumn();
+ if(!is_string($hash)||!hash_equals($hash,hash('sha256',$callbackToken))){$reference='';}
+}
 $amount = (float)($input['amount'] ?? 0);
 $status = $input['status'] ?? $input['transaction_status'] ?? '';
 
