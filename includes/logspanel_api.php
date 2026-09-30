@@ -84,29 +84,35 @@ function logspanelNormalizeLogProducts(array $items): array
  */
 function logspanelFetchLogCatalog(): array
 {
-    $cacheKey=hash('sha256',(string)API_BASE_URL.'|'.(string)RESELLER_API_KEY);
+    // /logs/categories is the provider's documented complete catalog endpoint.
+    // Do not also call /logs/products here: doing both doubles requests and can
+    // trip the provider's rate limiter without adding catalog coverage.
+    $base=(string)(defined('API_BASE_URL')?API_BASE_URL:'');
+    $cacheKey=hash('sha256',$base.'|log-categories');
     $cacheFile=sys_get_temp_dir().'/logspanel-log-catalog-'.$cacheKey.'.json';
-    if(is_file($cacheFile)&&(time()-(int)@filemtime($cacheFile))<60){
+    $ttl=300;
+
+    if(is_file($cacheFile)&&(time()-(int)@filemtime($cacheFile))<$ttl){
         $cached=json_decode((string)@file_get_contents($cacheFile),true);
         if(is_array($cached)&&isset($cached['products'])) return $cached;
     }
 
     $categoryResult=logspanelFetchAllPages('/logs/categories',100);
-    $productResult=logspanelFetchAllPages('/logs/products',100);
-    $errors=[];
-    if($categoryResult['error']!=='') $errors[]='Categories: '.$categoryResult['error'];
-    if($productResult['error']!=='') $errors[]='Products: '.$productResult['error'];
-
-    $merged=[];
-    foreach(array_merge($categoryResult['items'],$productResult['items']) as $p){
-        $ref=trim((string)($p['product_ref']??''));
-        $id=isset($p['id'])?(int)$p['id']:0;
-        $key=$ref!==''?'ref:'.$ref:('id:'.$id);
-        if(!isset($merged[$key])) $merged[$key]=$p;
-        else $merged[$key]=array_merge($merged[$key],array_filter($p,fn($v)=>$v!==null&&$v!==''));
+    if($categoryResult['error']!==''){
+        $result=['products'=>[],'error'=>'Categories: '.$categoryResult['error']];
+        // Keep a usable stale catalog during a temporary provider rate limit.
+        if(is_file($cacheFile)){
+            $cached=json_decode((string)@file_get_contents($cacheFile),true);
+            if(is_array($cached)&&isset($cached['products'])&&!empty($cached['products'])){
+                $cached['error']=$result['error'].' | Showing cached catalog.';
+                return $cached;
+            }
+        }
+        return $result;
     }
-    $products=logspanelNormalizeLogProducts(array_values($merged));
-    $result=['products'=>$products,'error'=>implode(' | ',array_unique($errors))];
+
+    $products=logspanelNormalizeLogProducts($categoryResult['items']);
+    $result=['products'=>$products,'error'=>''];
     @file_put_contents($cacheFile,json_encode($result,JSON_UNESCAPED_SLASHES),LOCK_EX);
     return $result;
 }
