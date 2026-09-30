@@ -66,8 +66,10 @@ function fetchResellerProductsFast(string $baseUrl, string $apiKey, int $ttl = 6
     }
 
     $providerMessage = is_array($data) && !empty($data['message']) ? (string) $data['message'] : '';
+    $providerCode = is_array($data) && !empty($data['code']) ? (string) $data['code'] : '';
     if ($code >= 400) {
-        $error = $providerMessage !== '' ? $providerMessage : 'Provider API returned HTTP ' . $code . '.';
+        $detail = $providerCode !== '' ? $providerCode . ': ' : '';
+        $error = $detail . ($providerMessage !== '' ? $providerMessage : 'Provider API returned HTTP ' . $code . '.');
     } elseif ($curlError !== '') {
         $error = 'Unable to reach the provider API: ' . $curlError;
     } else {
