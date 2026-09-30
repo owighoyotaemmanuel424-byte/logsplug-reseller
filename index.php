@@ -203,7 +203,7 @@ require __DIR__ . '/includes/header.php';
             <h1 id="landing-title">Your digital services, <span>made simple.</span></h1>
             <p>Buy reliable digital services in seconds, track every order, and manage your wallet from one clean dashboard.</p>
             <div class="landing-actions">
-                <a href="#shop" class="btn btn-primary btn-lg">Browse services</a>
+                <a href="services.php" class="btn btn-primary btn-lg">Browse services</a>
                 <?php if ($databaseConfigured && !$currentUser): ?><a href="register.php" class="btn btn-secondary btn-lg">Create account</a><?php endif; ?>
             </div>
             <div class="landing-trust"><span>✓ Instant order processing</span><span>✓ Wallet-based checkout</span><span>✓ Order history</span></div>
