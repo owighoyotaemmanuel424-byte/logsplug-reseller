@@ -16,8 +16,12 @@ apache2ctl -t
 
 echo "Starting Apache on 0.0.0.0:${PORT}"
 
-# Initialize/upgrade the Neon PostgreSQL schema once when the container starts.
-# Do not run schema DDL on every customer request.
-php /var/www/html/init_db.php || echo "Schema initialization warning; continuing startup."
+# Initialize/upgrade the Neon PostgreSQL schema in the background.
+# Start Apache immediately so Render can detect the web port even if Neon
+# takes time to accept the first connection.
+(
+    php /var/www/html/init_db.php ||
+    echo "Schema initialization warning; continuing startup."
+) &
 
 exec apache2-foreground
