@@ -28,9 +28,9 @@ if ($apiKey && $baseUrl) {
     $numberCountries = $countryResult['countries'];
     $numberError = $countryResult['error'];
 
-    $numberResult = logspanelFetchNumberServices();
+    $numberResult = logspanelFetchAllNumberServices($numberCountries);
     $numberServices = $numberResult['services'];
-    if ($numberResult['error'] !== '') $numberError = $numberError !== '' ? $numberError . ' | ' . $numberResult['error'] : $numberResult['error'];
+    if ($numberResult['error'] !== '') $numberError = trim($numberError . ' | ' . $numberResult['error'], ' |');
 
     $boostCatResult = logspanelFetchBoostCategories();
     $boostCategories = $boostCatResult['categories'];
