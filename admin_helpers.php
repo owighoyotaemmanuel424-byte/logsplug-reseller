@@ -270,19 +270,14 @@ function getFundRequestsAll(): array {
     return $st ? $st->fetchAll(PDO::FETCH_ASSOC) : [];
 }
 
-function adminCreditWallet(int $userId, float $amount): bool {
-    if ($amount <= 0) return false;
-    $pdo = getDb();
-    if (!$pdo) return false;
-    $st = $pdo->prepare('
-        INSERT INTO wallets (user_id, balance, updated_at)
-        VALUES (?, 0, CURRENT_TIMESTAMP)
-        ON CONFLICT (user_id) DO NOTHING
-    ');
-    $st->execute([$userId]);
-    $st = $pdo->prepare('UPDATE wallets SET balance = balance + ?, updated_at = CURRENT_TIMESTAMP WHERE user_id = ?');
-    $st->execute([$amount, $userId]);
-    return $st->rowCount() > 0;
+function adminCreditWallet(int $userId, string $amount): bool {
+ require_once __DIR__.'/includes/naira.php';
+ $amount=nairaDecimal($amount);if(nairaKobo($amount)<=0)return false;$pdo=getDb();
+ try{$pdo->beginTransaction();$st=$pdo->prepare('SELECT id FROM users WHERE id=? FOR UPDATE');$st->execute([$userId]);if(!$st->fetchColumn())throw new RuntimeException('User not found.');
+  $ref='admin-credit-'.bin2hex(random_bytes(12));
+  $pdo->prepare('INSERT INTO wallet_transactions(user_id,type,amount_kobo,reference,description) VALUES(?,?,?,?,?)')->execute([$userId,'adjustment',nairaKobo($amount),$ref,'Administrative wallet credit']);
+  $pdo->prepare('UPDATE users SET wallet_balance=wallet_balance+? WHERE id=?')->execute([$amount,$userId]);$pdo->commit();return true;
+ }catch(Throwable $e){if($pdo->inTransaction())$pdo->rollBack();error_log('Admin wallet credit failed: '.$e->getMessage());return false;}
 }
 
 function adminDeleteUser(int $userId): bool {
@@ -305,42 +300,12 @@ function adminDeleteUser(int $userId): bool {
 }
 
 function getResellerProviderStatus(): array {
-    $apiKey = defined('RESELLER_API_KEY') ? trim((string) RESELLER_API_KEY) : '';
-    $baseUrl = rtrim(defined('API_BASE_URL') ? (string) API_BASE_URL : '', '/');
-    if ($apiKey === '') return ['connected' => false, 'balance' => null, 'code' => 0, 'message' => 'Reseller API key is not configured.'];
-    if ($baseUrl === '') return ['connected' => false, 'balance' => null, 'code' => 0, 'message' => 'Provider API URL is not configured.'];
-
-    $ch = curl_init($baseUrl . '/wallet');
-    curl_setopt_array($ch, [
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_HTTPHEADER => ['Authorization: Bearer ' . $apiKey, 'Accept: application/json', 'Content-Type: application/json'],
-        CURLOPT_CONNECTTIMEOUT => 3,
-        CURLOPT_TIMEOUT => 8,
-        CURLOPT_FOLLOWLOCATION => true,
-        CURLOPT_ENCODING => '',
-    ]);
-    $res = curl_exec($ch);
-    $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    $curlError = curl_error($ch);
-    curl_close($ch);
-
-    $data = $res ? json_decode($res, true) : null;
-    $message = is_array($data) && !empty($data['message']) ? (string) $data['message'] : '';
-    $providerCode = is_array($data) && !empty($data['code']) ? (string) $data['code'] : '';
-
-    if ($code === 200 && is_array($data) && !empty($data['success']) && isset($data['data']['balance'])) {
-        return ['connected' => true, 'balance' => (float) $data['data']['balance'], 'code' => $code, 'message' => 'Connected'];
-    }
-
-    if ($message === '') {
-        $message = $curlError !== '' ? 'Unable to reach provider: ' . $curlError : ($code > 0 ? 'Provider returned HTTP ' . $code . '.' : 'Provider did not return a response.');
-    }
-
-    if ($providerCode !== '') $message = $providerCode . ': ' . $message;
-    return ['connected' => false, 'balance' => null, 'code' => $code, 'message' => $message];
+ require_once __DIR__.'/includes/providers/ProviderRegistry.php';
+ try{$p=ProviderRegistry::get('logspanel');$h=$p->health();return ['connected'=>(bool)$h['ok'],'balance'=>$p->walletBalance(),'code'=>(int)($h['status']??0),'message'=>(string)($h['message']??'')];}
+ catch(Throwable $e){return ['connected'=>false,'balance'=>null,'code'=>0,'message'=>'Provider unavailable.'];}
 }
 
-function getResellerPlatformBalance(): ?float {
+function getResellerPlatformBalance(): ?string {
     $status = getResellerProviderStatus();
     return $status['connected'] ? $status['balance'] : null;
 }
