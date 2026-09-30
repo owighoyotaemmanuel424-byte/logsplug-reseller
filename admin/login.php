@@ -83,6 +83,9 @@ $adminPageTitle = $setup ? 'Set admin password' : 'Admin login';
             </div>
             <?php endif; ?>
             <button type="submit" class="btn btn-primary">Log in</button>
+            <?php if (!$setup): ?>
+            <p class="text-muted" style="margin-top:12px;"><a href="recover.php">Forgot admin password?</a></p>
+            <?php endif; ?>
         </form>
         <?php endif; ?>
     </div>
