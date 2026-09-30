@@ -9,7 +9,20 @@ final class LogspanelProvider implements ProviderInterface
 {
     public function __construct(private array $config, private Closure $secretResolver) {}
 
-    private function base(): string { return rtrim((string)($this->config['base_url']??'https://logspanel.com/api/v1'),'/'); }
+    private function base(): string {
+        $base=rtrim(trim((string)($this->config['base_url']??'https://logspanel.com/api/v1')),'/');
+        // Accept only the API origin/base. If an old admin setting accidentally
+        // contains an endpoint, strip it so requests never become /api/v1/https://...
+        $parsed=parse_url($base);
+        if(!is_array($parsed)||empty($parsed['scheme'])||empty($parsed['host'])){
+            $base='https://logspanel.com/api/v1';
+        }
+        $base=rtrim($base,'/');
+        $marker='/api/v1';
+        $pos=strpos($base,$marker);
+        if($pos!==false) $base=substr($base,0,$pos+strlen($marker));
+        return rtrim($base,'/');
+    }
     private function request(string $method,string $path,?array $payload=null,?string $idempotency=null): array
     {
         $key=($this->secretResolver)('api_key');
@@ -30,7 +43,7 @@ final class LogspanelProvider implements ProviderInterface
     public function health():array{ $r=$this->request('GET','/wallet'); return ['ok'=>$r['ok'],'status'=>$r['status'],'message'=>$r['error']!==''?$r['error']:'Connected'];}
     public function walletBalance():?string{ $r=$this->request('GET','/wallet'); return $r['ok']?nairaDecimal((string)($r['data']['data']['balance']??'0')):null; }
     public function catalog():array{
-        $items=[];$next='/logs/products?per_page=100&page=1';$seen=[];
+        $items=[];$next='/logs/categories';$seen=[];
         for($i=0;$next!==null&&$i<10000;$i++){
             if(isset($seen[$next]))throw new RuntimeException('Provider pagination cycle.');
             $seen[$next]=true;$r=$this->request('GET',$next);
