@@ -7,12 +7,18 @@ require_once __DIR__.'/includes/order_service.php';
 require_once __DIR__.'/includes/naira.php';
 
 $user=getCurrentUser();$error='';$success='';
-if($_SERVER['REQUEST_METHOD']==='POST'&&isset($_POST['product_ref'])){
+if($_SERVER['REQUEST_METHOD']==='POST'&&(isset($_POST['product_ref'])||isset($_POST['category_id']))){
  if(!$user){header('Location: login.php?redirect='.rawurlencode('index.php'));exit;}
- $ref=trim((string)$_POST['product_ref']);$qty=max(1,min(100,(int)($_POST['qty']??1)));
+ $ref=trim((string)($_POST['product_ref']??''));
+ $categoryId=(int)($_POST['category_id']??0);
+ $qty=max(1,min(100,(int)($_POST['qty']??1)));
  $result=fetchResellerProductsFast();
  $selected=null;
- foreach($result['products'] as $p)if(hash_equals((string)$p['product_ref'],$ref)){$selected=$p;break;}
+ foreach($result['products'] as $p){
+   $matchesRef=$ref!==''&&hash_equals((string)($p['product_ref']??''),$ref);
+   $matchesCategory=$ref===''&&$categoryId!==0&&(int)($p['category_id']??$p['id']??0)===$categoryId;
+   if($matchesRef||$matchesCategory){$selected=$p;break;}
+ }
  if(!$selected)$error='Selected service is no longer available.';
  elseif(!(bool)$selected['purchasable'])$error='This service is currently unavailable.';
  else{
