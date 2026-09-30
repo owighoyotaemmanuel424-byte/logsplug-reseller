@@ -32,6 +32,38 @@ try {
     };
     $products=[];
     $cachedLogs=$loadCached('catalog_logspanel');
+
+    // Bootstrap an empty catalog once, with a DB lock + cooldown. This prevents
+    // every customer request from becoming a provider API request.
+    if(!$cachedLogs){
+        $pdo=db();
+        $lock=(bool)$pdo->query("SELECT pg_try_advisory_lock(48392020)")->fetchColumn();
+        if($lock){
+            try{
+                $st=$pdo->prepare('SELECT value FROM settings WHERE key=?');
+                $st->execute(['catalog_bootstrap_attempted_at']);
+                $last=$st->fetchColumn();
+                $canAttempt=!is_string($last)||$last===''||(time()-(int)$last)>=600;
+                if($canAttempt){
+                    $pdo->prepare('INSERT INTO settings(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=EXCLUDED.value')
+                        ->execute(['catalog_bootstrap_attempted_at',(string)time()]);
+                    try{
+                        $fresh=ProviderRegistry::get('logspanel')->catalog();
+                        if($fresh){
+                            $pdo->prepare('INSERT INTO settings(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=EXCLUDED.value')
+                                ->execute(['catalog_logspanel',json_encode(['data'=>$fresh,'synced_at'=>gmdate('c')],JSON_UNESCAPED_SLASHES)]);
+                            $cachedLogs=$fresh;
+                        }
+                    }catch(Throwable $providerError){
+                        $logsError='Catalog is temporarily unavailable. The provider sync will retry automatically.';
+                    }
+                }
+            }finally{
+                $pdo->query("SELECT pg_advisory_unlock(48392020)");
+            }
+        }
+    }
+
     foreach($cachedLogs as $p){
         if(!is_array($p)) continue;
         $parent=is_array($p['parent_category']??null)?$p['parent_category']:[];
