@@ -45,14 +45,20 @@ final class LogspanelProvider implements ProviderInterface
     public function health():array{ $r=$this->request('GET','/wallet'); return ['ok'=>$r['ok'],'status'=>$r['status'],'message'=>$r['error']!==''?$r['error']:'Connected'];}
     public function walletBalance():?string{ $r=$this->request('GET','/wallet'); return $r['ok']?nairaDecimal((string)($r['data']['data']['balance']??'0')):null; }
     public function catalog():array{
-        $items=[];$next='/logs/categories';$seen=[];
+        // Logspanel documents /logs/products as the complete catalog representation.
+        // Request the maximum page size so a normal catalog needs the fewest API calls.
+        $items=[];$next='/logs/products?per_page=100&page=1';$seen=[];
         for($i=0;$next!==null&&$i<10000;$i++){
             if(isset($seen[$next]))throw new RuntimeException('Provider pagination cycle.');
-            $seen[$next]=true;$r=$this->request('GET',$next);
+            $seen[$next]=true;
+            $r=$this->request('GET',$next);
             if(!$r['ok'])throw new RuntimeException($r['error']);
-            $data=$r['data']['data']??[];if(!is_array($data))throw new RuntimeException('Invalid catalog response.');
+            $data=$r['data']['data']??[];
+            if(!is_array($data))throw new RuntimeException('Invalid catalog response.');
             foreach($data as $item)if(is_array($item))$items[]=$item;
             $next=$r['data']['links']['next']??null;
+            // Provider limit is 60 requests/minute. Keep pagination safely below it.
+            if($next!==null) usleep(2000000);
         }
         return $items;
     }
