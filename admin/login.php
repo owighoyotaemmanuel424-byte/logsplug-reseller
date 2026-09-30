@@ -62,11 +62,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$noDb) {
         <?php endif; ?>
 
         <?php if (!$noDb): ?>
-        <form method="post" class="admin-form" autocomplete="on">
+        <form method="post" class="admin-form" autocomplete="off">
             <div class="form-group">
                 <label for="email">Admin email</label>
                 <input type="email" id="email" name="email" required autocomplete="username"
-                       value="<?php echo htmlspecialchars((string) ($_POST['email'] ?? (defined('ADMIN_DEFAULT_EMAIL') ? ADMIN_DEFAULT_EMAIL : '')), ENT_QUOTES, 'UTF-8'); ?>">
+                       value="<?php echo htmlspecialchars((string) ($_POST['email'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>">
             </div>
             <div class="form-group">
                 <label for="password">Password</label>
