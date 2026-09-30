@@ -99,6 +99,8 @@ function getOrdersForUser(int $userId,int $page=1,int $perPage=20):array {
 }
 
 
+function getOrdersByUserPaginated(int $userId,int $page=1,int $perPage=20):array { return getOrdersForUser($userId,$page,$perPage); }
+
 function getWalletTransactionsPaginated(int $userId,int $page=1,int $perPage=20):array {
  $all=getWalletTransactions($userId);$total=count($all);$pages=max(1,(int)ceil($total/$perPage));$page=max(1,min($page,$pages));
  return ['items'=>array_slice($all,($page-1)*$perPage,$perPage),'total'=>$total,'page'=>$page,'per_page'=>$perPage,'total_pages'=>$pages];
