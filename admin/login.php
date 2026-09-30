@@ -6,44 +6,48 @@ if (isAdminLoggedIn()) {
     exit;
 }
 
-if (function_exists('isAdminSetup') && isAdminSetup()) {
-    header('Location: setup.php');
-    exit;
-}
-
 $pdo = function_exists('getDb') ? getDb() : null;
 $noDb = !defined('DATABASE_URL') || trim((string) DATABASE_URL) === '' || $pdo === null;
+$setup = !$noDb && isAdminSetup();
 
 $error = '';
-$setup = !$noDb && !isAdminSetup();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$noDb) {
-    $password = $_POST['password'] ?? '';
-    $confirm = $_POST['password_confirm'] ?? '';
+    $password = (string)($_POST['password'] ?? '');
+    $confirm = (string)($_POST['password_confirm'] ?? '');
 
     if ($setup) {
-        if (strlen($password) < 8) {
-            $error = 'Password must be at least 8 characters.';
+        // Canonical login page also serves as the first-admin bootstrap/recovery
+        // screen when no credential exists. This avoids redirect loops between
+        // login.php and setup.php while preserving the one-time setup rule.
+        if (strlen($password) < 12) {
+            $error = 'Admin password must be at least 12 characters.';
         } elseif ($password !== $confirm) {
             $error = 'Passwords do not match.';
-        } else {
-            $hash = password_hash($password, PASSWORD_DEFAULT);
-            if (setSetting('admin_password_hash', $hash)) {
-                $_SESSION['admin_logged_in'] = true;
-                $_SESSION['admin_role'] = 'admin';
+        } elseif (!createAdminPassword($password)) {
+            // A concurrent request may have created the admin. Re-check and
+            // authenticate against the credential that won the race.
+            if (!isAdminSetup() && adminLogin($password)) {
                 header('Location: index.php');
                 exit;
             }
-            $error = 'Unable to save admin password. Check the database connection.';
-        }
-    } else {
-        if (adminLogin($password)) {
+            $error = 'Unable to create the admin account. Please try again.';
+        } else {
+            $_SESSION['admin_logged_in'] = true;
+            $_SESSION['admin_role'] = 'admin';
+            session_regenerate_id(true);
             header('Location: index.php');
             exit;
         }
+    } elseif (adminLogin($password)) {
+        header('Location: index.php');
+        exit;
+    } else {
         $error = 'Invalid password.';
     }
 }
+
+$adminPageTitle = $setup ? 'Admin account setup' : 'Admin login';
 
 $adminPageTitle = $setup ? 'Set admin password' : 'Admin login';
 ?>
