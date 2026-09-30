@@ -12,45 +12,89 @@ if (session_status() === PHP_SESSION_NONE) {
 function isAdminLoggedIn(): bool { return !empty($_SESSION['admin_logged_in']); }
 function isAdminRole(): bool { return isset($_SESSION['admin_role']) && $_SESSION['admin_role'] === 'admin'; }
 
-function getAdminPasswordHash(): ?string {
+function normalizeAdminEmail(string $email): string {
+    return strtolower(trim($email));
+}
+
+function ensureDefaultAdminCredentials(): void {
+    $email = defined('ADMIN_DEFAULT_EMAIL') ? normalizeAdminEmail(ADMIN_DEFAULT_EMAIL) : '';
+    $password = defined('ADMIN_DEFAULT_PASSWORD') ? ADMIN_DEFAULT_PASSWORD : '';
+    $name = defined('ADMIN_DEFAULT_NAME') ? trim(ADMIN_DEFAULT_NAME) : 'Administrator';
+    if ($email === '' || $password === '' || strlen($password) < 12) return;
+
+    $pdo = getDb();
+    if (!$pdo) return;
+
+    try {
+        $pdo->beginTransaction();
+        $pdo->exec('SELECT pg_advisory_xact_lock(91827364)');
+
+        $used = $pdo->query("SELECT value FROM settings WHERE key = 'admin_bootstrap_used_at' LIMIT 1")->fetchColumn();
+        if (is_string($used) && $used !== '') {
+            $pdo->commit();
+            return;
+        }
+
+        $hash = password_hash($password, PASSWORD_DEFAULT);
+        $st = $pdo->prepare(
+            'INSERT INTO admin_accounts (id, email, password_hash, name)
+             VALUES (1, ?, ?, ?)
+             ON CONFLICT (id) DO UPDATE SET email = EXCLUDED.email,
+                                            password_hash = EXCLUDED.password_hash,
+                                            name = EXCLUDED.name,
+                                            updated_at = CURRENT_TIMESTAMP'
+        );
+        $st->execute([$email, $hash, $name]);
+
+        $st = $pdo->prepare(
+            'INSERT INTO settings (key, value) VALUES (?, ?)
+             ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value'
+        );
+        $st->execute(['admin_password_hash', $hash]);
+        $st->execute(['admin_email', $email]);
+        $st->execute(['admin_name', $name]);
+        $st->execute(['admin_bootstrap_used_at', gmdate('c')]);
+
+        $pdo->commit();
+    } catch (Throwable $e) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        error_log('Admin default bootstrap failed: ' . $e->getMessage());
+    }
+}
+
+function getAdminCredentials(): ?array {
     $pdo = getDb();
     if (!$pdo) return null;
 
-    // Read the dedicated credential table when available. If an older
-    // deployment has not created that table yet, continue to the legacy
-    // settings store instead of treating a database/schema error as
-    // "first-time setup".
     try {
-        $st = $pdo->query('SELECT password_hash FROM admin_accounts WHERE id = 1 LIMIT 1');
-        $hash = $st ? $st->fetchColumn() : false;
-        if (is_string($hash) && $hash !== '') return $hash;
+        $st = $pdo->query('SELECT email, password_hash, name FROM admin_accounts WHERE id = 1 LIMIT 1');
+        $row = $st ? $st->fetch(PDO::FETCH_ASSOC) : false;
+        if (is_array($row) && !empty($row['password_hash'])) return $row;
     } catch (Throwable $e) {
         error_log('Admin credential table lookup warning: ' . $e->getMessage());
     }
 
-    // Existing installations may still have the admin hash in settings.
-    // That credential remains valid and is migrated forward when possible.
     try {
         $legacy = getSetting('admin_password_hash');
         if (is_string($legacy) && $legacy !== '') {
+            $email = normalizeAdminEmail((string) getSetting('admin_email'));
+            if ($email === '') $email = defined('ADMIN_DEFAULT_EMAIL') ? normalizeAdminEmail(ADMIN_DEFAULT_EMAIL) : 'admin@localhost';
+            $name = (string) getSetting('admin_name');
+            if ($name === '') $name = defined('ADMIN_DEFAULT_NAME') ? ADMIN_DEFAULT_NAME : 'Administrator';
             try {
-                $pdo->exec('CREATE TABLE IF NOT EXISTS admin_accounts (
-                    id SMALLINT PRIMARY KEY CHECK (id = 1),
-                    password_hash TEXT NOT NULL,
-                    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
-                )');
                 $st = $pdo->prepare(
-                    'INSERT INTO admin_accounts (id, password_hash)
-                     VALUES (1, ?)
-                     ON CONFLICT (id) DO UPDATE SET password_hash = EXCLUDED.password_hash,
+                    'INSERT INTO admin_accounts (id, email, password_hash, name)
+                     VALUES (1, ?, ?, ?)
+                     ON CONFLICT (id) DO UPDATE SET email = EXCLUDED.email,
+                                                    password_hash = EXCLUDED.password_hash,
+                                                    name = EXCLUDED.name,
                                                     updated_at = CURRENT_TIMESTAMP'
                 );
-                $st->execute([$legacy]);
+                $st->execute([$email, $legacy, $name]);
             } catch (Throwable $migrationError) {
                 error_log('Admin credential migration warning: ' . $migrationError->getMessage());
             }
-            return $legacy;
+            return ['email' => $email, 'password_hash' => $legacy, 'name' => $name];
         }
     } catch (Throwable $e) {
         error_log('Legacy admin credential lookup failed: ' . $e->getMessage());
@@ -59,24 +103,26 @@ function getAdminPasswordHash(): ?string {
     return null;
 }
 
-function isAdminSetup(): bool {
-    return getAdminPasswordHash() === null;
+function getAdminPasswordHash(): ?string {
+    $credentials = getAdminCredentials();
+    return $credentials['password_hash'] ?? null;
 }
 
-function createAdminPassword(string $password): bool {
+function isAdminSetup(): bool {
+    return getAdminCredentials() === null;
+}
+
+function createAdminPassword(string $password, string $email = '', string $name = 'Administrator'): bool {
     if (strlen($password) < 12) return false;
     $pdo = getDb();
     if (!$pdo) return false;
 
+    $email = normalizeAdminEmail($email);
+    if ($email === '') $email = defined('ADMIN_DEFAULT_EMAIL') ? normalizeAdminEmail(ADMIN_DEFAULT_EMAIL) : 'admin@localhost';
+
     try {
         $pdo->beginTransaction();
         $pdo->exec('SELECT pg_advisory_xact_lock(91827364)');
-        $pdo->exec('CREATE TABLE IF NOT EXISTS admin_accounts (
-            id SMALLINT PRIMARY KEY CHECK (id = 1),
-            password_hash TEXT NOT NULL,
-            created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
-        )');
 
         $existing = $pdo->query('SELECT password_hash FROM admin_accounts WHERE id = 1 LIMIT 1')->fetchColumn();
         if (is_string($existing) && $existing !== '') {
@@ -84,25 +130,13 @@ function createAdminPassword(string $password): bool {
             return false;
         }
 
-        $legacy = $pdo->prepare('SELECT value FROM settings WHERE key = ? LIMIT 1');
-        $legacy->execute(['admin_password_hash']);
-        $legacyHash = $legacy->fetchColumn();
-        if (is_string($legacyHash) && $legacyHash !== '') {
-            $pdo->prepare(
-                'INSERT INTO admin_accounts (id, password_hash)
-                 VALUES (1, ?)
-                 ON CONFLICT (id) DO NOTHING'
-            )->execute([$legacyHash]);
-            $pdo->commit();
-            return true;
-        }
-
         $hash = password_hash($password, PASSWORD_DEFAULT);
-        $pdo->prepare(
-            'INSERT INTO admin_accounts (id, password_hash)
-             VALUES (1, ?)
+        $st = $pdo->prepare(
+            'INSERT INTO admin_accounts (id, email, password_hash, name)
+             VALUES (1, ?, ?, ?)
              ON CONFLICT (id) DO NOTHING'
-        )->execute([$hash]);
+        );
+        $st->execute([$email, $hash, trim($name) ?: 'Administrator']);
 
         $pdo->prepare(
             'INSERT INTO settings (key, value) VALUES (?, ?)
@@ -118,17 +152,27 @@ function createAdminPassword(string $password): bool {
     }
 }
 
-function adminLogin(string $password): bool {
-    $credentials = [
-        'admin' => getAdminPasswordHash(),
-        'reseller' => getSetting('reseller_password_hash'),
-    ];
-    foreach ($credentials as $role => $hash) {
-        if ($hash !== null && $hash !== '' && password_verify($password, $hash)) {
-            $_SESSION['admin_logged_in'] = true;
-            $_SESSION['admin_role'] = $role;
-            return true;
-        }
+function adminLogin(string $email, string $password): bool {
+    $email = normalizeAdminEmail($email);
+    $credentials = getAdminCredentials();
+    if ($credentials && hash_equals(normalizeAdminEmail((string)$credentials['email']), $email)
+        && password_verify($password, (string)$credentials['password_hash'])) {
+        $_SESSION['admin_logged_in'] = true;
+        $_SESSION['admin_role'] = 'admin';
+        $_SESSION['admin_email'] = $email;
+        $_SESSION['admin_name'] = (string)$credentials['name'];
+        session_regenerate_id(true);
+        return true;
+    }
+
+    // Preserve the legacy reseller role for existing deployments.
+    $resellerHash = getSetting('reseller_password_hash');
+    if ($email !== '' && $resellerHash !== null && $resellerHash !== '' && password_verify($password, $resellerHash)) {
+        $_SESSION['admin_logged_in'] = true;
+        $_SESSION['admin_role'] = 'reseller';
+        $_SESSION['admin_email'] = $email;
+        session_regenerate_id(true);
+        return true;
     }
     return false;
 }
