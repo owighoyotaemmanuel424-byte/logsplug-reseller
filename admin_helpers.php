@@ -29,8 +29,13 @@ function ensureDefaultAdminCredentials(): void {
         $pdo->beginTransaction();
         $pdo->exec('SELECT pg_advisory_xact_lock(91827364)');
 
-        $used = $pdo->query("SELECT value FROM settings WHERE key = 'admin_bootstrap_used_at' LIMIT 1")->fetchColumn();
-        if (is_string($used) && $used !== '') {
+        $existing = $pdo->query('SELECT email, password_hash, name FROM admin_accounts WHERE id = 1 LIMIT 1')->fetch(PDO::FETCH_ASSOC);
+
+        // Render environment credentials are the authoritative bootstrap credentials.
+        // If an older admin password exists, synchronize it to the configured value.
+        if (is_array($existing) && !empty($existing['password_hash'])
+            && normalizeAdminEmail((string)$existing['email']) === $email
+            && password_verify($password, (string)$existing['password_hash'])) {
             $pdo->commit();
             return;
         }
