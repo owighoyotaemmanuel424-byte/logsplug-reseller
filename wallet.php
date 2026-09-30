@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/includes/naira.php';
 require_once __DIR__ . '/auth_helpers.php';
 requireLogin();
 $user = getCurrentUser();
@@ -24,7 +25,7 @@ require __DIR__ . '/includes/header.php';
 
     <h1 class="page-title">My Wallet</h1>
     <div class="card">
-        <p class="balance-big">₦<?php echo number_format($balance, 2); ?></p>
+        <p class="balance-big">₦<?php echo nairaFormat($balance); ?></p>
         <p class="text-muted mt-1">Current balance</p>
         <?php if ($sprintPayEnabled): ?>
             <a href="fund.php" class="btn btn-primary mt-2">Fund with SprintPay</a>
@@ -55,7 +56,7 @@ require __DIR__ . '/includes/header.php';
                                 <td class="wallet-table-date"><?php echo htmlspecialchars(date('M j, Y g:i A', strtotime($tx['date']))); ?></td>
                                 <td class="wallet-table-desc"><?php echo htmlspecialchars($tx['description']); ?></td>
                                 <td class="wallet-table-ref"><code class="ref-code"><?php echo htmlspecialchars($tx['reference']); ?></code></td>
-                                <td class="wallet-table-amount amount-col <?php echo $tx['amount'] >= 0 ? 'credit' : 'debit'; ?>"><?php echo $tx['amount'] >= 0 ? '+' : ''; ?>₦<?php echo number_format($tx['amount'], 2); ?></td>
+                                <td class="wallet-table-amount amount-col <?php echo $tx['amount'] >= 0 ? 'credit' : 'debit'; ?>"><?php echo ((string)$tx['amount'] !== '' && $tx['amount'][0] === '-') ? '-' : '+'; ?><?php echo nairaFormat(ltrim((string)$tx['amount'],'-')); ?></td>
                                 <td class="wallet-table-status"><span class="status-badge status-<?php echo $tx['status']; ?>"><?php echo $tx['status'] === 'confirmed' ? 'Confirmed' : 'Pending'; ?></span></td>
                             </tr>
                         <?php endforeach; ?>
