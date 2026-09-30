@@ -63,6 +63,61 @@ function isAdminSetup(): bool {
     return getAdminPasswordHash() === null;
 }
 
+function createAdminPassword(string $password): bool {
+    if (strlen($password) < 12) return false;
+    $pdo = getDb();
+    if (!$pdo) return false;
+
+    try {
+        $pdo->beginTransaction();
+        $pdo->exec('SELECT pg_advisory_xact_lock(91827364)');
+        $pdo->exec('CREATE TABLE IF NOT EXISTS admin_accounts (
+            id SMALLINT PRIMARY KEY CHECK (id = 1),
+            password_hash TEXT NOT NULL,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )');
+
+        $existing = $pdo->query('SELECT password_hash FROM admin_accounts WHERE id = 1 LIMIT 1')->fetchColumn();
+        if (is_string($existing) && $existing !== '') {
+            $pdo->rollBack();
+            return false;
+        }
+
+        $legacy = $pdo->prepare('SELECT value FROM settings WHERE key = ? LIMIT 1');
+        $legacy->execute(['admin_password_hash']);
+        $legacyHash = $legacy->fetchColumn();
+        if (is_string($legacyHash) && $legacyHash !== '') {
+            $pdo->prepare(
+                'INSERT INTO admin_accounts (id, password_hash)
+                 VALUES (1, ?)
+                 ON CONFLICT (id) DO NOTHING'
+            )->execute([$legacyHash]);
+            $pdo->commit();
+            return true;
+        }
+
+        $hash = password_hash($password, PASSWORD_DEFAULT);
+        $pdo->prepare(
+            'INSERT INTO admin_accounts (id, password_hash)
+             VALUES (1, ?)
+             ON CONFLICT (id) DO NOTHING'
+        )->execute([$hash]);
+
+        $pdo->prepare(
+            'INSERT INTO settings (key, value) VALUES (?, ?)
+             ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value'
+        )->execute(['admin_password_hash', $hash]);
+
+        $pdo->commit();
+        return true;
+    } catch (Throwable $e) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        error_log('Admin password creation failed: ' . $e->getMessage());
+        return false;
+    }
+}
+
 function adminLogin(string $password): bool {
     $credentials = [
         'admin' => getAdminPasswordHash(),
