@@ -97,3 +97,45 @@ function getOrdersForUser(int $userId,int $page=1,int $perPage=20):array {
     $st->bindValue(1,$userId,PDO::PARAM_INT);$st->bindValue(2,$perPage,PDO::PARAM_INT);$st->bindValue(3,$offset,PDO::PARAM_INT);$st->execute();
     return ['items'=>$st->fetchAll(),'total'=>$total,'page'=>$page,'per_page'=>$perPage,'total_pages'=>max(1,(int)ceil($total/$perPage))];
 }
+
+
+function getWalletTransactionsPaginated(int $userId,int $page=1,int $perPage=20):array {
+ $all=getWalletTransactions($userId);$total=count($all);$pages=max(1,(int)ceil($total/$perPage));$page=max(1,min($page,$pages));
+ return ['items'=>array_slice($all,($page-1)*$perPage,$perPage),'total'=>$total,'page'=>$page,'per_page'=>$perPage,'total_pages'=>$pages];
+}
+
+function createFundRequest(int $userId,string|int $amount):?string {
+ $amount=nairaDecimal((string)$amount);if(nairaKobo($amount)<100)return null;
+ $ref='fund-'.bin2hex(random_bytes(12));$pdo=db();
+ try{$pdo->prepare('INSERT INTO fund_requests(user_id,amount,reference) VALUES(?,?,?)')->execute([$userId,$amount,$ref]);return $ref;}
+ catch(Throwable $e){error_log('Fund request failed: '.$e->getMessage());return null;}
+}
+
+function completeFundRequestByReference(string $reference,string $amount):bool {
+ $pdo=db();$pdo->beginTransaction();
+ try{
+  $st=$pdo->prepare('SELECT id,user_id,amount,status FROM fund_requests WHERE reference=? FOR UPDATE');$st->execute([$reference]);$row=$st->fetch();
+  if(!$row){$pdo->rollBack();return false;}
+  if($row['status']==='completed'){$pdo->commit();return false;}
+  $expected=nairaKobo((string)$row['amount']);$received=nairaKobo((string)$amount);
+  if($expected!==$received){$pdo->rollBack();return false;}
+  $tx='fund-'.$reference;
+  $pdo->prepare('INSERT INTO wallet_transactions(user_id,type,amount_kobo,reference,provider,provider_ref,description) VALUES(?,?,?,?,?,?,?)')
+   ->execute([(int)$row['user_id'],'credit',$expected,$tx,'sprintpay',$reference,'Wallet funding']);
+  $pdo->prepare('UPDATE users SET wallet_balance=wallet_balance+? WHERE id=?')->execute([$row['amount'],(int)$row['user_id']]);
+  $pdo->prepare("UPDATE fund_requests SET status='completed',completed_at=CURRENT_TIMESTAMP WHERE id=?")->execute([(int)$row['id']]);
+  $pdo->commit();return true;
+ }catch(Throwable $e){if($pdo->inTransaction())$pdo->rollBack();error_log('Fund completion failed: '.$e->getMessage());return false;}
+}
+
+function recordOrder(?int $userId,int $productId,string $productName,int $qty,string $unitPrice,string $apiOrderId='',string $productDetails=''):void {
+ if($userId===null)throw new RuntimeException('Customer identity is required.');
+ $pdo=db();$total=nairaMultiply($unitPrice,$qty);
+ $pdo->prepare('INSERT INTO orders(user_id,product_id,product_name,qty,unit_price,total_amount,api_order_id,status,product_details) VALUES(?,?,?,?,?,?,?,\'completed\',?)')
+  ->execute([$userId,$productId,$productName,$qty,nairaDecimal($unitPrice),$total,$apiOrderId,$productDetails]);
+}
+
+function reportOrder(int $orderId,int $userId,string $reason):?string {
+ $st=db()->prepare('UPDATE orders SET reported_at=CURRENT_TIMESTAMP,report_reason=? WHERE id=? AND user_id=? AND reported_at IS NULL AND created_at>=CURRENT_TIMESTAMP-INTERVAL \'2 hours\'');
+ $st->execute([substr(trim($reason),0,500),$orderId,$userId]);return $st->rowCount()===1?null:'Unable to report this order.';
+}
