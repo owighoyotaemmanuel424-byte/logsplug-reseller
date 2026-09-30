@@ -1,56 +1,28 @@
 <?php
-require_once __DIR__ . '/../admin_helpers.php';
+declare(strict_types=1);
+require_once __DIR__.'/../admin_helpers.php';
+require_once __DIR__.'/../includes/providers/ProviderRegistry.php';
+
 requireAdmin();
 
-if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    header('Location: providers.php');
-    exit;
-}
-
-$baseUrl = rtrim(trim((string)($_POST['api_base_url'] ?? '')), '/');
-$apiKey = trim((string)($_POST['api_key'] ?? ''));
-$clearKey = isset($_POST['clear_key']) && $_POST['clear_key'] === '1';
-
-if ($baseUrl === '' || !filter_var($baseUrl, FILTER_VALIDATE_URL) || !preg_match('#^https://#i', $baseUrl)) {
-    header('Location: providers.php?error=' . rawurlencode('Use a valid HTTPS API base URL.'));
-    exit;
-}
-
-if (!preg_match('#^https://logspanel\.com/api/v1$#i', $baseUrl)) {
-    header('Location: providers.php?error=' . rawurlencode('For this provider, use https://logspanel.com/api/v1'));
-    exit;
-}
-
-/*
- * Admin UI writes cannot change the Render process environment. Persist the
- * provider configuration in the existing settings table so the application
- * can read it at runtime. The API key is encrypted when APP_MASTER_KEY is
- * available; otherwise it is stored as a protected server-side setting.
- */
-$pdo = getDb();
-if (!$pdo) {
-    header('Location: providers.php?error=' . rawurlencode('Database is unavailable.'));
-    exit;
-}
-
-try {
-    $pdo->beginTransaction();
-
-    $stmt = $pdo->prepare('INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value');
-    $stmt->execute(['provider_api_base_url', $baseUrl]);
-
-    if ($clearKey) {
-        $stmt->execute(['provider_api_key', '']);
-    } elseif ($apiKey !== '') {
-        $stmt->execute(['provider_api_key', $apiKey]);
+if($_SERVER['REQUEST_METHOD']!=='POST'){header('Location: providers.php');exit;}
+$providerId=strtolower(trim((string)($_POST['provider_id']??'logspanel')));
+try{
+    $schema=ProviderRegistry::schema($providerId);
+    $config=[];
+    foreach(($schema['fields']??[]) as $field){
+        $name=(string)$field['name'];
+        if($name==='')continue;
+        $value=$_POST[$name]??($field['default']??'');
+        if(($field['type']??'')==='boolean')$value=isset($_POST[$name])?'1':'0';
+        $config[$name]=is_string($value)?trim($value):(string)$value;
     }
-
-    $pdo->commit();
-    header('Location: providers.php?saved=1');
-    exit;
-} catch (Throwable $e) {
-    if ($pdo->inTransaction()) $pdo->rollBack();
-    error_log('Provider settings save failed: ' . $e->getMessage());
-    header('Location: providers.php?error=' . rawurlencode('Provider settings could not be saved.'));
-    exit;
+    $secret=array_key_exists('secret',$_POST)?trim((string)$_POST['secret']):null;
+    if($secret==='')$secret=null;
+    ProviderRegistry::save($providerId,$config,$secret);
+    AuditLog::record('provider.save','provider',$providerId,['config_keys'=>array_keys($config),'secret_changed'=>$secret!==null]);
+    header('Location: provider_edit.php?id='.rawurlencode($providerId).'&saved=1');exit;
+}catch(Throwable $e){
+    error_log('Provider save failed: '.$e->getMessage());
+    header('Location: provider_edit.php?id='.rawurlencode($providerId).'&error='.rawurlencode('Provider settings could not be saved.'));exit;
 }
