@@ -308,10 +308,10 @@ function getResellerProviderStatus(): array {
     if ($apiKey === '') return ['connected' => false, 'balance' => null, 'code' => 0, 'message' => 'Reseller API key is not configured.'];
     if ($baseUrl === '') return ['connected' => false, 'balance' => null, 'code' => 0, 'message' => 'Provider API URL is not configured.'];
 
-    $ch = curl_init($baseUrl . '/api/reseller/me');
+    $ch = curl_init($baseUrl . '/wallet');
     curl_setopt_array($ch, [
         CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_HTTPHEADER => ['X-Api-Key: ' . $apiKey, 'Accept: application/json'],
+        CURLOPT_HTTPHEADER => ['Authorization: Bearer ' . $apiKey, 'Accept: application/json', 'Content-Type: application/json'],
         CURLOPT_CONNECTTIMEOUT => 3,
         CURLOPT_TIMEOUT => 8,
         CURLOPT_FOLLOWLOCATION => true,
