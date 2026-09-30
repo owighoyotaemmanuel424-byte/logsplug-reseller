@@ -34,8 +34,15 @@ final class ProviderRegistry
         if (!in_array($providerId,self::ids(),true)) throw new InvalidArgumentException('Unknown provider.');
         if (isset(self::$instances[$providerId])) return self::$instances[$providerId];
 
-        $class=''.ucfirst($providerId).'Provider';
+        // Provider IDs are normalized to lowercase, but PHP class/file names
+        // may preserve brand casing (e.g. SprintPayProvider.php).
+        $classMap=[
+            'sprintpay'=>'SprintPayProvider',
+            'logspanel'=>'LogspanelProvider',
+        ];
+        $class=$classMap[$providerId] ?? (ucfirst($providerId).'Provider');
         $file=__DIR__.'/'.$class.'.php';
+        if (!is_file($file)) throw new RuntimeException('Provider implementation file missing: '.$class.'.php');
         require_once $file;
         if (!class_exists($class)) throw new RuntimeException('Provider implementation missing.');
         $schema=self::schema($providerId);
