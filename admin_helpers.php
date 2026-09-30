@@ -16,25 +16,44 @@ function getAdminPasswordHash(): ?string {
     $pdo = getDb();
     if (!$pdo) return null;
 
+    // Read the dedicated credential table when available. If an older
+    // deployment has not created that table yet, continue to the legacy
+    // settings store instead of treating a database/schema error as
+    // "first-time setup".
     try {
         $st = $pdo->query('SELECT password_hash FROM admin_accounts WHERE id = 1 LIMIT 1');
         $hash = $st ? $st->fetchColumn() : false;
         if (is_string($hash) && $hash !== '') return $hash;
+    } catch (Throwable $e) {
+        error_log('Admin credential table lookup warning: ' . $e->getMessage());
+    }
 
-        // Migrate the older settings-based admin password if it exists.
+    // Existing installations may still have the admin hash in settings.
+    // That credential remains valid and is migrated forward when possible.
+    try {
         $legacy = getSetting('admin_password_hash');
-        if ($legacy !== null && $legacy !== '') {
-            $st = $pdo->prepare(
-                'INSERT INTO admin_accounts (id, password_hash)
-                 VALUES (1, ?)
-                 ON CONFLICT (id) DO UPDATE SET password_hash = EXCLUDED.password_hash,
-                                                updated_at = CURRENT_TIMESTAMP'
-            );
-            $st->execute([$legacy]);
+        if (is_string($legacy) && $legacy !== '') {
+            try {
+                $pdo->exec('CREATE TABLE IF NOT EXISTS admin_accounts (
+                    id SMALLINT PRIMARY KEY CHECK (id = 1),
+                    password_hash TEXT NOT NULL,
+                    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+                )');
+                $st = $pdo->prepare(
+                    'INSERT INTO admin_accounts (id, password_hash)
+                     VALUES (1, ?)
+                     ON CONFLICT (id) DO UPDATE SET password_hash = EXCLUDED.password_hash,
+                                                    updated_at = CURRENT_TIMESTAMP'
+                );
+                $st->execute([$legacy]);
+            } catch (Throwable $migrationError) {
+                error_log('Admin credential migration warning: ' . $migrationError->getMessage());
+            }
             return $legacy;
         }
     } catch (Throwable $e) {
-        error_log('Admin credential lookup failed: ' . $e->getMessage());
+        error_log('Legacy admin credential lookup failed: ' . $e->getMessage());
     }
 
     return null;
