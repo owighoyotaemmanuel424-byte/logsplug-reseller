@@ -151,3 +151,11 @@ function deductWalletBalance(int $userId,string $amount):bool {
   $pdo->commit();return true;
  }catch(Throwable $e){if($pdo->inTransaction())$pdo->rollBack();return false;}
 }
+
+function getSetting(string $key):?string {
+ $st=db()->prepare('SELECT value FROM settings WHERE key=? LIMIT 1');$st->execute([$key]);$v=$st->fetchColumn();
+ return $v===false?null:(string)$v;
+}
+function setSetting(string $key,string $value):bool {
+ db()->prepare('INSERT INTO settings(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=EXCLUDED.value')->execute([$key,$value]);return true;
+}
