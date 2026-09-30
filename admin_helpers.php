@@ -324,6 +324,7 @@ function getResellerProviderStatus(): array {
 
     $data = $res ? json_decode($res, true) : null;
     $message = is_array($data) && !empty($data['message']) ? (string) $data['message'] : '';
+    $providerCode = is_array($data) && !empty($data['code']) ? (string) $data['code'] : '';
 
     if ($code === 200 && is_array($data) && !empty($data['success']) && isset($data['data']['balance'])) {
         return ['connected' => true, 'balance' => (float) $data['data']['balance'], 'code' => $code, 'message' => 'Connected'];
@@ -333,6 +334,7 @@ function getResellerProviderStatus(): array {
         $message = $curlError !== '' ? 'Unable to reach provider: ' . $curlError : ($code > 0 ? 'Provider returned HTTP ' . $code . '.' : 'Provider did not return a response.');
     }
 
+    if ($providerCode !== '') $message = $providerCode . ': ' . $message;
     return ['connected' => false, 'balance' => null, 'code' => $code, 'message' => $message];
 }
 
