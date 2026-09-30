@@ -24,18 +24,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$error) {
         $error = 'Passwords do not match.';
     } else {
         try {
+            // init_db.php creates both application tables before requests are served.
+            // Keep recovery transactions limited to credential reads/writes so
+            // schema DDL cannot poison the transaction.
             $pdo->beginTransaction();
             $pdo->exec('SELECT pg_advisory_xact_lock(91827364)');
-            $pdo->exec('CREATE TABLE IF NOT EXISTS admin_accounts (
-                id SMALLINT PRIMARY KEY CHECK (id = 1),
-                password_hash TEXT NOT NULL,
-                created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
-            )');
-            $pdo->exec('CREATE TABLE IF NOT EXISTS settings (
-                key TEXT PRIMARY KEY,
-                value TEXT NOT NULL
-            )');
 
             $used = $pdo->query("SELECT value FROM settings WHERE key = 'admin_recovery_used_at' LIMIT 1")->fetchColumn();
             if (is_string($used) && $used !== '') {
