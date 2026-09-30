@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/../admin_helpers.php';
 requireAdmin();
+require_once __DIR__.'/includes/csrf.php';
 
 $message = '';
 $messageType = '';
@@ -79,7 +80,7 @@ require __DIR__ . '/includes/header.php';
                             </td>
                             <td>
                                 <?php if (!empty($o['api_order_id'])): ?>
-                                <form method="post" action="report_to_platform.php" class="admin-form-inline">
+                                <form method="post" action="report_to_platform.php" class="admin-form-inline"><?=csrf_field()?>
                                     <input type="hidden" name="order_id" value="<?php echo (int)$o['id']; ?>">
                                     <button type="submit" class="btn btn-primary btn-sm">Report to main site</button>
                                 </form>
@@ -89,7 +90,7 @@ require __DIR__ . '/includes/header.php';
                             </td>
                             <td>
                                 <?php if (empty($o['replacement_status']) || $o['replacement_status'] !== 'replaced'): ?>
-                                <form method="post" class="admin-form-inline" style="display:inline;">
+                                <form method="post" class="admin-form-inline" style="display:inline;"><?=csrf_field()?>
                                     <input type="hidden" name="replace_order" value="1">
                                     <input type="hidden" name="order_id" value="<?php echo (int)$o['id']; ?>">
                                     <input type="text" name="replacement_note" placeholder="Replacement note" class="admin-inline-input" style="width:140px; padding:6px 8px; margin-right:6px;">
