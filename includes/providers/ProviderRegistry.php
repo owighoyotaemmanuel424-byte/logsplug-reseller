@@ -41,7 +41,7 @@ final class ProviderRegistry
         $schema=self::schema($providerId);
         $config=self::config($providerId);
         $resolver=static function(string $secretName) use ($providerId,$schema): ?string {
-            $stored=ProviderSecretStore::get($providerId,$secretName);
+            $stored=self::secret($providerId,$secretName);
             if ($stored!==null && $stored!=='') return $stored;
             $env=(string)($schema['secret_env']??'');
             if ($env!=='' && $secretName===(string)($schema['secret_name']??'api_key') && getenv($env)!==false) return (string)getenv($env);
