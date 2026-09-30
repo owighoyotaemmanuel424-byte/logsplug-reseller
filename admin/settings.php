@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/../admin_helpers.php';
 requireAdmin();
+require_once __DIR__.'/includes/csrf.php';
 
 $message = '';
 $messageType = '';
@@ -72,7 +73,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $message = 'New passwords do not match.';
             $messageType = 'error';
         } else {
-            setSetting('admin_password_hash', password_hash($new, PASSWORD_DEFAULT));
+            setSetting('admin_password_hash', password_hash($new, PASSWORD_ARGON2ID));
             $message = 'Admin password updated.';
             $messageType = 'success';
         }
@@ -123,7 +124,7 @@ require __DIR__ . '/includes/header.php';
     <div class="admin-card">
         <h2 style="margin-top:0;">Site settings</h2>
         <p class="text-muted">Override config.php. API key and base URL stay in config.php.</p>
-        <form method="post" class="admin-form" enctype="multipart/form-data">
+        <form method="post" class="admin-form" enctype="multipart/form-data"><?=csrf_field()?>
             <input type="hidden" name="section" value="site">
             <div class="form-group">
                 <label for="site_title">Site title</label>
@@ -174,7 +175,7 @@ require __DIR__ . '/includes/header.php';
     <div class="admin-card" id="request-markup">
         <h2 style="margin-top:0;">Request markup change</h2>
         <p class="text-muted">You cannot set markup. Submit a request for admin to review.</p>
-        <form method="post" class="admin-form">
+        <form method="post" class="admin-form"><?=csrf_field()?>
             <input type="hidden" name="section" value="request_markup">
             <div class="form-group">
                 <label for="requested_percent">Requested markup %</label>
@@ -192,7 +193,7 @@ require __DIR__ . '/includes/header.php';
     <div class="admin-card">
         <h2 style="margin-top:0;">SprintPay (wallet funding)</h2>
         <p class="text-muted">Enable so customers can fund their wallet.</p>
-        <form method="post" class="admin-form">
+        <form method="post" class="admin-form"><?=csrf_field()?>
             <input type="hidden" name="section" value="sprintpay">
             <div class="form-group">
                 <label><input type="checkbox" name="sprintpay_enabled" value="1" <?php echo $sprintpayEnabled ? 'checked' : ''; ?>> Enable SprintPay</label>
@@ -218,7 +219,7 @@ require __DIR__ . '/includes/header.php';
     <?php if ($isAdmin): ?>
     <div class="admin-card">
         <h2 style="margin-top:0;">Change admin password</h2>
-        <form method="post" class="admin-form">
+        <form method="post" class="admin-form"><?=csrf_field()?>
             <input type="hidden" name="section" value="admin_password">
             <div class="form-group">
                 <label for="current_password">Current password</label>
@@ -239,7 +240,7 @@ require __DIR__ . '/includes/header.php';
     <div class="admin-card">
         <h2 style="margin-top:0;">Reseller password (optional)</h2>
         <p class="text-muted">If set, reseller can log in with this password and see admin (read-only markup, can request markup change).</p>
-        <form method="post" class="admin-form">
+        <form method="post" class="admin-form"><?=csrf_field()?>
             <input type="hidden" name="section" value="reseller_password">
             <div class="form-group">
                 <label for="reseller_password">New reseller password</label>
