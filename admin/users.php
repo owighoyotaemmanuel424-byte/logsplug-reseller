@@ -2,6 +2,7 @@
 require_once __DIR__ . '/../admin_helpers.php';
 requireAdmin();
 require_once __DIR__.'/includes/csrf.php';
+require_once __DIR__.'/../includes/naira.php';
 
 $message = '';
 $error = '';
@@ -80,7 +81,7 @@ require __DIR__ . '/includes/header.php';
                             <td><?php echo (int) $u['id']; ?></td>
                             <td><?php echo htmlspecialchars($u['name']); ?></td>
                             <td><span class="admin-user-email"><?php echo htmlspecialchars($u['email']); ?></span></td>
-                            <td class="admin-amount">₦<?php echo number_format((float) $u['balance'], 2); ?></td>
+                            <td class="admin-amount"><?php echo htmlspecialchars(nairaFormat((string)$u['balance'])); ?></td>
                             <td><?php echo htmlspecialchars($u['created_at']); ?></td>
                             <td class="admin-actions-cell">
                                 <div class="admin-actions">
