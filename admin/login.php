@@ -10,11 +10,8 @@ $pdo = getDb();
 $noDb = $pdo === null;
 $error = '';
 
-if (!$noDb) {
-    // One-time bootstrap from Render environment variables. Secrets never live in Git.
-    ensureDefaultAdminCredentials();
-}
-
+// Admin credentials are verified from environment configuration on POST.
+// Avoid a database/bootstrap round-trip on the initial login-page render.
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$noDb) {
     $email = (string)($_POST['email'] ?? '');
     $password = (string)($_POST['password'] ?? '');
