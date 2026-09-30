@@ -23,7 +23,12 @@
     transition: width .22s ease, transform .22s ease;
     overflow: hidden;
 }
-.admin-sidebar-inner { display: flex; flex-direction: column; height: 100%; padding: 18px 12px; }
+.admin-sidebar-inner { display: flex; flex-direction: column; height: 100%; min-height: 0; padding: 18px 12px; }
+.admin-nav { flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; padding: 4px 2px 12px; scrollbar-width: thin; scrollbar-color: rgba(148,163,184,.45) transparent; }
+.admin-nav::-webkit-scrollbar { width: 6px; }
+.admin-nav::-webkit-scrollbar-track { background: transparent; }
+.admin-nav::-webkit-scrollbar-thumb { background: rgba(148,163,184,.45); border-radius: 999px; }
+.admin-nav::-webkit-scrollbar-thumb:hover { background: rgba(148,163,184,.7); }
 .admin-brand-row { position: relative; padding: 0 4px 16px; border-bottom: 1px solid rgba(255,255,255,.08); }
 .admin-mobile-close { display: none; position: absolute; top: 5px; right: 2px; width: 36px; height: 36px; border: 0; border-radius: 10px; background: rgba(255,255,255,.07); color: #cbd5e1; font-size: 1.5rem; line-height: 1; cursor: pointer; }
 .admin-mobile-close:hover { background: rgba(255,255,255,.13); color: #fff; }
