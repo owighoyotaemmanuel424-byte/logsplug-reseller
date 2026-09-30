@@ -11,8 +11,11 @@ if ($orderId < 1) {
     exit;
 }
 $order = getOrderById($orderId);
-if (!$order || (int) $order['user_id'] !== $userId) {
-    header('Location: my_orders.php');
+if (!$order) {
+    http_response_code(404);
+    require __DIR__ . '/includes/head.php';
+    echo '<main class="site-wrap"><div class="card"><h1>Order not found</h1><p>The requested order does not exist.</p><a class="btn btn-primary" href="my_orders.php">Back to orders</a></div></main>';
+    require __DIR__ . '/includes/footer.php';
     exit;
 }
 
