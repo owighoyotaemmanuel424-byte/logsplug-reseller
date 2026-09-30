@@ -159,6 +159,42 @@ function createAdminPassword(string $password, string $email = '', string $name 
 
 function adminLogin(string $email, string $password): bool {
     $email = normalizeAdminEmail($email);
+
+    // Render environment credentials are the authoritative emergency/admin
+    // credentials. Verify them directly first so a stale or temporarily
+    // unavailable database credential can never lock the configured admin out.
+    $configuredEmail = defined('ADMIN_DEFAULT_EMAIL') ? normalizeAdminEmail((string) ADMIN_DEFAULT_EMAIL) : '';
+    $configuredPassword = defined('ADMIN_DEFAULT_PASSWORD') ? (string) ADMIN_DEFAULT_PASSWORD : '';
+    if ($configuredEmail !== '' && $configuredPassword !== ''
+        && hash_equals($configuredEmail, $email)
+        && hash_equals($configuredPassword, $password)) {
+        $_SESSION['admin_logged_in'] = true;
+        $_SESSION['admin_role'] = 'admin';
+        $_SESSION['admin_email'] = $configuredEmail;
+        $_SESSION['admin_name'] = defined('ADMIN_DEFAULT_NAME') ? (string) ADMIN_DEFAULT_NAME : 'Administrator';
+        session_regenerate_id(true);
+
+        // Best-effort persistence; authentication must not depend on this write.
+        try {
+            $pdo = getDb();
+            if ($pdo) {
+                $hash = password_hash($configuredPassword, PASSWORD_DEFAULT);
+                $st = $pdo->prepare(
+                    'INSERT INTO admin_accounts (id, email, password_hash, name)
+                     VALUES (1, ?, ?, ?)
+                     ON CONFLICT (id) DO UPDATE SET email = EXCLUDED.email,
+                                                    password_hash = EXCLUDED.password_hash,
+                                                    name = EXCLUDED.name,
+                                                    updated_at = CURRENT_TIMESTAMP'
+                );
+                $st->execute([$configuredEmail, $hash, defined('ADMIN_DEFAULT_NAME') ? (string) ADMIN_DEFAULT_NAME : 'Administrator']);
+            }
+        } catch (Throwable $e) {
+            error_log('Admin credential persistence warning: ' . $e->getMessage());
+        }
+        return true;
+    }
+
     $credentials = getAdminCredentials();
     if ($credentials && hash_equals(normalizeAdminEmail((string)$credentials['email']), $email)
         && password_verify($password, (string)$credentials['password_hash'])) {
