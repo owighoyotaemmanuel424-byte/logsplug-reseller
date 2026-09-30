@@ -41,6 +41,25 @@ final class LogspanelProvider implements ProviderInterface
         }
         return $items;
     }
+    public function numberCountries():array{
+        $r=$this->request('GET','/numbers/countries');return ['countries'=>is_array($r['data']['data']??null)?$r['data']['data']:[],'error'=>$r['ok']?'':$r['error']];
+    }
+    public function numberServices(int $countryId):array{
+        $r=$this->request('GET','/numbers/services?country_id='.rawurlencode((string)$countryId));return ['services'=>is_array($r['data']['data']??null)?$r['data']['data']:[],'error'=>$r['ok']?'':$r['error']];
+    }
+    public function allNumberServices(array $countries):array{
+        $all=[];$errors=[];foreach($countries as $country){$id=(int)($country['id']??0);if($id<1)continue;$r=$this->numberServices($id);if($r['error']!==''){$errors[]='Country '.$id.': '.$r['error'];continue;}foreach($r['services'] as $s){if(!is_array($s))continue;$s['country_id']=$s['country_id']??$id;$s['country_name']=$s['country_name']??(string)($country['name']??'');$key=(string)$s['country_id'].':'.(string)($s['service_id']??$s['service_name']??'');$all[$key]=$s;}}return ['services'=>array_values($all),'error'=>implode(' | ',array_unique($errors))];
+    }
+    public function boostCategories():array{
+        $r=$this->request('GET','/boost/categories');return ['categories'=>is_array($r['data']['data']??null)?$r['data']['data']:[],'error'=>$r['ok']?'':$r['error']];
+    }
+    public function boostServices(?string $category=null):array{
+        $path='/boost/services'.($category!==null&&trim($category)!==''?'?category='.rawurlencode($category):'');$r=$this->request('GET',$path);return ['services'=>is_array($r['data']['data']??null)?$r['data']['data']:[],'error'=>$r['ok']?'':$r['error']];
+    }
+    public function allBoostServices(array $categories=[]):array{
+        $all=[];$errors=[];$r=$this->boostServices();if($r['error']==='')$all=$r['services'];else $errors[]=$r['error'];if(!$all)foreach($categories as $cat){$name=is_array($cat)?(string)($cat['name']??''):(string)$cat;if($name==='')continue;$x=$this->boostServices($name);if($x['error']!==''){$errors[]=$x['error'];continue;}$all=array_merge($all,$x['services']);} $u=[];foreach($all as $s){$id=(string)($s['service_id']??'');if($id!=='')$u[$id]=$s;}return ['services'=>array_values($u),'error'=>implode(' | ',array_unique($errors))];
+    }
+
     public function createOrder(array $payload,string $idempotencyKey):array{
         $send=['quantity'=>(int)($payload['quantity']??1),'idempotency_key'=>$idempotencyKey];
         if(!empty($payload['product_ref']))$send['product_ref']=(string)$payload['product_ref'];
