@@ -38,7 +38,7 @@ require __DIR__ . '/includes/header.php';
             <h1>Welcome back, <?php echo htmlspecialchars((string)($user['name'] ?: 'there')); ?>.</h1>
             <p>Manage your wallet, services and orders from one place.</p>
         </div>
-        <a href="index.php#shop" class="dashboard-primary-action">Browse services <span>→</span></a>
+        <a href="services.php" class="dashboard-primary-action">Browse services <span>→</span></a>
     </section>
 
     <section class="dashboard-stats" aria-label="Account overview">
@@ -126,7 +126,7 @@ require __DIR__ . '/includes/header.php';
                     <span><strong>Fund wallet</strong><small>Add money to your balance</small></span>
                     <b>›</b>
                 </a>
-                <a href="index.php#shop" class="dashboard-action">
+                <a href="services.php" class="dashboard-action">
                     <span class="dashboard-action-icon">◎</span>
                     <span><strong>Buy a service</strong><small>Browse available services</small></span>
                     <b>›</b>
@@ -168,7 +168,7 @@ require __DIR__ . '/includes/header.php';
 
     <nav class="dashboard-mobile-nav" aria-label="Customer navigation">
         <a class="is-active" href="dashboard.php"><span>⌂</span>Home</a>
-        <a href="index.php#shop"><span>◎</span>Services</a>
+        <a href="services.php"><span>◎</span>Services</a>
         <a href="wallet.php"><span>₦</span>Wallet</a>
         <a href="my_orders.php"><span>↗</span>Orders</a>
         <a href="profile.php"><span>◉</span>Profile</a>
