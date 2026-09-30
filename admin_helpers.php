@@ -12,15 +12,44 @@ if (session_status() === PHP_SESSION_NONE) {
 function isAdminLoggedIn(): bool { return !empty($_SESSION['admin_logged_in']); }
 function isAdminRole(): bool { return isset($_SESSION['admin_role']) && $_SESSION['admin_role'] === 'admin'; }
 
+function getAdminPasswordHash(): ?string {
+    $pdo = getDb();
+    if (!$pdo) return null;
+
+    try {
+        $st = $pdo->query('SELECT password_hash FROM admin_accounts WHERE id = 1 LIMIT 1');
+        $hash = $st ? $st->fetchColumn() : false;
+        if (is_string($hash) && $hash !== '') return $hash;
+
+        // Migrate the older settings-based admin password if it exists.
+        $legacy = getSetting('admin_password_hash');
+        if ($legacy !== null && $legacy !== '') {
+            $st = $pdo->prepare(
+                'INSERT INTO admin_accounts (id, password_hash)
+                 VALUES (1, ?)
+                 ON CONFLICT (id) DO UPDATE SET password_hash = EXCLUDED.password_hash,
+                                                updated_at = CURRENT_TIMESTAMP'
+            );
+            $st->execute([$legacy]);
+            return $legacy;
+        }
+    } catch (Throwable $e) {
+        error_log('Admin credential lookup failed: ' . $e->getMessage());
+    }
+
+    return null;
+}
+
 function isAdminSetup(): bool {
-    $hash = function_exists('getSetting') ? getSetting('admin_password_hash') : null;
-    return $hash === null || $hash === '';
+    return getAdminPasswordHash() === null;
 }
 
 function adminLogin(string $password): bool {
-    if (!function_exists('getSetting')) return false;
-    foreach (['admin' => 'admin_password_hash', 'reseller' => 'reseller_password_hash'] as $role => $key) {
-        $hash = getSetting($key);
+    $credentials = [
+        'admin' => getAdminPasswordHash(),
+        'reseller' => getSetting('reseller_password_hash'),
+    ];
+    foreach ($credentials as $role => $hash) {
         if ($hash !== null && $hash !== '' && password_verify($password, $hash)) {
             $_SESSION['admin_logged_in'] = true;
             $_SESSION['admin_role'] = $role;
