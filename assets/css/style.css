@@ -1290,3 +1290,81 @@ body.page-leaving { opacity: 0; transform: translateY(-4px); transition: opacity
   *,*::before,*::after { animation:none !important; transition:none !important; }
   body { opacity:1 !important; transform:none !important; }
 }
+
+
+/* =========================================================
+   Responsive system — public/customer experience
+   ========================================================= */
+html { width:100%; overflow-x:hidden; }
+body { width:100%; overflow-x:hidden; }
+img, video, svg { max-width:100%; height:auto; }
+button, input, select, textarea { max-width:100%; }
+a, button, input, select, textarea { -webkit-tap-highlight-color:transparent; }
+button, .btn, .site-nav a, .pagination-link { min-height:44px; }
+.btn { white-space:normal; }
+.site-wrap, .site-wrap.wide, .site-wrap.narrow { width:100%; }
+.site-wrap.wide { max-width:1100px; }
+.table-responsive, .products-table-wrap { max-width:100%; overflow-x:auto; overscroll-behavior-x:contain; }
+pre, code { max-width:100%; overflow-x:auto; }
+
+@media (max-width:760px) {
+  .site-header-inner { padding:12px 14px; gap:10px; }
+  .site-brand { min-width:0; max-width:calc(100% - 56px); }
+  .site-logo { max-width:110px; max-height:38px; }
+  .site-title { font-size:1.08rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .site-nav-toggle { display:flex; flex:0 0 44px; }
+  .site-nav { display:none; width:100%; order:3; flex-direction:column; align-items:stretch; gap:4px; padding:10px 0 2px; border-top:1px solid var(--color-border); }
+  .site-nav.site-nav--open { display:flex; }
+  .site-nav a { width:100%; padding:12px 14px; min-height:46px; }
+  .site-nav a.nav-cta { text-align:center; }
+  .site-wrap { padding:18px 14px 34px; }
+  .site-wrap.wide { margin:0 auto 34px; }
+  .site-wrap.narrow { margin:24px auto 40px; padding-left:14px; padding-right:14px; }
+  h1, .page-title { font-size:1.55rem; line-height:1.15; margin-bottom:18px; }
+  h2 { font-size:1.15rem; }
+  .card { padding:17px; margin-bottom:14px; border-radius:12px; }
+  .landing-hero { margin:-18px -14px 26px; border-radius:0; }
+  .landing-actions { flex-direction:column; }
+  .landing-actions .btn { width:100%; }
+  .landing-shop-heading { align-items:flex-start; flex-direction:column; gap:10px; }
+  .landing-shop-heading .btn { width:100%; }
+  .landing-features { grid-template-columns:1fr; }
+  .hero-panel { width:min(100%,320px); }
+  .products-table-wrap { margin-left:-2px; margin-right:-2px; }
+  .products-table { min-width:620px; }
+  .order-form-cell { width:100%; }
+  .order-form-cell .qty-input { width:72px; }
+  .pagination-wrap { flex-direction:column; align-items:stretch; }
+  .pagination { justify-content:center; }
+  .modal { padding:10px; align-items:flex-end; }
+  .modal-content { max-height:88vh; border-radius:16px 16px 0 0; }
+  .modal-footer { flex-direction:column-reverse; }
+  .modal-footer .btn { width:100%; }
+  .order-details-card { padding:16px; }
+  .order-details-table th, .order-details-table td { padding:9px 8px; }
+  .order-details-table th { width:92px; }
+  .order-report-form { align-items:stretch; }
+  .order-report-form > * { width:100%; min-width:0; }
+  .order-report-reason { width:100%; }
+  .orders-table, .wallet-table { min-width:680px; }
+  .reseller-product-grid, .service-grid, .services-grid { grid-template-columns:1fr !important; }
+  .service-card, .reseller-product-card { min-width:0; }
+  .service-card__body, .reseller-product-card__body { padding:15px; }
+  .service-card .btn, .service-buy, .reseller-product-card__form .btn { width:100%; }
+  .form-row, .form-grid, .dashboard-grid, .stats-grid { grid-template-columns:1fr !important; }
+  .form-actions { flex-direction:column; align-items:stretch; }
+  .form-actions .btn { width:100%; }
+  input[type="text"], input[type="email"], input[type="password"], input[type="number"], select, textarea { font-size:16px; }
+}
+@media (max-width:390px) {
+  .site-header-inner { padding-left:10px; padding-right:10px; }
+  .site-wrap { padding-left:10px; padding-right:10px; }
+  .site-title { font-size:1rem; }
+  .card { padding:14px; }
+  .landing-hero { margin-left:-10px; margin-right:-10px; padding-left:16px; padding-right:16px; }
+  .landing-hero h1 { font-size:2.15rem; }
+  .landing-trust { font-size:.74rem; }
+}
+@media (hover:none) and (pointer:coarse) {
+  .btn:hover, .service-buy:hover, .reseller-product-card__login-btn:hover, .service-card:hover, .reseller-product-card:hover { transform:none; }
+}
