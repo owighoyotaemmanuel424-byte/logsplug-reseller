@@ -53,7 +53,7 @@ $resellerBalanceForNav = function_exists('getResellerPlatformBalance') ? getRese
 
 <div class="admin-main">
     <header class="admin-header">
-        <button class="admin-sidebar-toggle" id="adminSidebarToggle" type="button" aria-controls="adminSidebar" aria-expanded="true" aria-label="Collapse sidebar">
+        <button class="admin-sidebar-toggle" id="adminSidebarToggle" type="button" aria-controls="adminSidebar" aria-expanded="false" aria-label="Open sidebar">
             <span></span><span></span><span></span>
         </button>
         <span class="admin-page-title"><?php echo htmlspecialchars($adminPageTitle ?? 'Admin'); ?></span>
@@ -92,8 +92,11 @@ $resellerBalanceForNav = function_exists('getResellerPlatformBalance') ? getRese
         }
     }
 
-    var saved = false;
-    try { saved = localStorage.getItem(storageKey) === '1'; } catch (e) {}
+    var saved = true;
+    try {
+        var stored = localStorage.getItem(storageKey);
+        saved = stored === null ? true : stored === '1';
+    } catch (e) {}
     setCollapsed(saved, false);
 
     if (toggle) {
