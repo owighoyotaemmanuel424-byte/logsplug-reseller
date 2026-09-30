@@ -6,86 +6,76 @@ if (isAdminLoggedIn()) {
     exit;
 }
 
-$pdo = function_exists('getDb') ? getDb() : null;
-$noDb = !defined('DATABASE_URL') || trim((string) DATABASE_URL) === '' || $pdo === null;
-$setup = !$noDb && isAdminSetup();
-
+$pdo = getDb();
+$noDb = $pdo === null;
 $error = '';
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$noDb) {
-    $password = (string)($_POST['password'] ?? '');
-    $confirm = (string)($_POST['password_confirm'] ?? '');
-
-    if ($setup) {
-        // Canonical login page also serves as the first-admin bootstrap/recovery
-        // screen when no credential exists. This avoids redirect loops between
-        // login.php and setup.php while preserving the one-time setup rule.
-        if (strlen($password) < 12) {
-            $error = 'Admin password must be at least 12 characters.';
-        } elseif ($password !== $confirm) {
-            $error = 'Passwords do not match.';
-        } elseif (!createAdminPassword($password)) {
-            // A concurrent request may have created the admin. Re-check and
-            // authenticate against the credential that won the race.
-            if (!isAdminSetup() && adminLogin($password)) {
-                header('Location: index.php');
-                exit;
-            }
-            $error = 'Unable to create the admin account. Please try again.';
-        } else {
-            $_SESSION['admin_logged_in'] = true;
-            $_SESSION['admin_role'] = 'admin';
-            session_regenerate_id(true);
-            header('Location: index.php');
-            exit;
-        }
-    } elseif (adminLogin($password)) {
-        header('Location: index.php');
-        exit;
-    } else {
-        $error = 'Invalid password.';
-    }
+if (!$noDb) {
+    // One-time bootstrap from Render environment variables. Secrets never live in Git.
+    ensureDefaultAdminCredentials();
 }
 
-$adminPageTitle = 'Admin login';
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$noDb) {
+    $email = (string)($_POST['email'] ?? '');
+    $password = (string)($_POST['password'] ?? '');
 
-$adminPageTitle = $setup ? 'Set admin password' : 'Admin login';
+    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        $error = 'Enter a valid admin email address.';
+    } elseif ($password === '') {
+        $error = 'Enter your admin password.';
+    } elseif (!adminLogin($email, $password)) {
+        $error = 'Invalid admin email or password.';
+    } else {
+        header('Location: index.php');
+        exit;
+    }
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?php echo $setup ? 'Setup' : 'Login'; ?> – Reseller Admin</title>
+    <title>Admin login – Reseller Admin</title>
     <link rel="stylesheet" href="../assets/css/style.css">
     <link rel="stylesheet" href="assets/css/admin.css">
+    <style>
+        .admin-login-card { max-width: 520px; margin: 7vh auto 0; }
+        .admin-login-brand { text-align:center; margin-bottom:24px; }
+        .admin-login-brand .page-title { margin-bottom:8px; }
+        .admin-login-subtitle { color:#667085; margin:0; }
+        .admin-form .btn { width:100%; }
+    </style>
 </head>
 <body>
-<div class="site-wrap narrow" style="margin-top: 60px;">
+<div class="site-wrap narrow admin-login-card">
     <div class="auth-card">
-        <h1 class="page-title">Admin login</h1>
+        <div class="admin-login-brand">
+            <h1 class="page-title">Admin login</h1>
+            <p class="admin-login-subtitle">Secure access to the reseller administration panel.</p>
+        </div>
+
         <?php if ($noDb): ?>
-            <div class="alert alert-error"><p>Database is not configured or cannot be reached. Set the <strong>DATABASE_URL</strong> environment variable in Render.</p></div>
+            <div class="alert alert-error"><p>Database is not configured or cannot be reached.</p></div>
         <?php elseif ($error): ?>
             <div class="alert alert-error"><p><?php echo htmlspecialchars($error); ?></p></div>
         <?php endif; ?>
+
         <?php if (!$noDb): ?>
-        <form method="post" class="admin-form">
+        <form method="post" class="admin-form" autocomplete="on">
+            <div class="form-group">
+                <label for="email">Admin email</label>
+                <input type="email" id="email" name="email" required autocomplete="username"
+                       value="<?php echo htmlspecialchars((string)($_POST['email'] ?? (defined('ADMIN_DEFAULT_EMAIL') ? ADMIN_DEFAULT_EMAIL : '')); ?>">
+            </div>
             <div class="form-group">
                 <label for="password">Password</label>
-                <input type="password" id="password" name="password" required minlength="12" autocomplete="current-password">
+                <input type="password" id="password" name="password" required autocomplete="current-password">
             </div>
-            <?php if ($setup): ?>
-            <div class="form-group">
-                <label for="password_confirm">Confirm password</label>
-                <input type="password" id="password_confirm" name="password_confirm" required minlength="12" autocomplete="new-password">
-                <p class="text-muted">If this installation has no admin credential yet, the password will initialize it securely and sign you in.</p>
-            </div>
-            <?php endif; ?>
-            <button type="submit" class="btn btn-primary">Log in</button>
-            <?php if (!$setup): ?>
-            <p class="text-muted" style="margin-top:12px;"><a href="recover.php">Forgot admin password?</a></p>
-            <?php endif; ?>
+            <button type="submit" class="btn btn-primary">Sign in</button>
+            <p class="text-muted" style="margin-top:12px;text-align:center;">
+                <a href="recover.php">Forgot admin password?</a>
+            </p>
         </form>
         <?php endif; ?>
     </div>
