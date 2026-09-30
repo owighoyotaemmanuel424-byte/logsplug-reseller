@@ -11,6 +11,6 @@ $adminPageTitle = isset($adminPageTitle) ? $adminPageTitle : 'Admin';
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="../assets/css/style.css">
-    <link rel="stylesheet" href="assets/css/admin.css">
+    <link rel="stylesheet" href="/admin/assets/css/admin.css?v=20260930">
 </head>
 <body class="admin-body">
