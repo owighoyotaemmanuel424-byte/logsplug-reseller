@@ -1,0 +1,8 @@
+<?php
+require_once __DIR__ . '/../admin_helpers.php'; requireAdmin();
+$adminPageTitle='Provider Control'; $currentAdminPage='providers'; $balance=getResellerPlatformBalance();
+require __DIR__.'/includes/head.php'; require __DIR__.'/includes/header.php'; ?>
+<div class="master-dashboard"><div class="master-hero"><div><span class="master-kicker">PROVIDER OPERATIONS</span><h1>Provider control</h1><p>Monitor the reseller provider connection, balance and operational entry points.</p></div><div class="master-hero-actions"><a class="btn btn-primary" href="settings.php">Provider settings</a><a class="btn btn-secondary" href="orders.php">Provider orders</a></div></div>
+<div class="master-stats"><div class="master-stat master-stat-primary"><span class="master-stat-icon">◎</span><div><span>Provider balance</span><strong><?=$balance!==null?'₦'.number_format($balance,2):'—'?></strong></div><small><?=$balance!==null?'Connected':'Unavailable'?></small></div><div class="master-stat"><span class="master-stat-icon">▤</span><div><span>Service operations</span><strong>Live</strong></div><small>Use site settings for provider configuration</small></div></div>
+<div class="admin-card"><h2 class="admin-card-title">Provider controls</h2><div class="master-actions"><a href="settings.php">API configuration</a><a href="../services.php" target="_blank" rel="noopener">Service catalog ↗</a><a href="orders.php">Order monitoring</a><a href="reported_orders.php">Provider issues</a></div></div></div>
+<?php require __DIR__.'/includes/footer.php'; ?>
