@@ -2,6 +2,7 @@
 declare(strict_types=1);
 require_once __DIR__.'/../admin_helpers.php';
 require_once __DIR__.'/../includes/providers/ProviderRegistry.php';
+require_once __DIR__.'/../includes/naira.php';
 requireAdmin();
 $adminPageTitle='Providers';$currentAdminPage='providers';
 $providers=[];
