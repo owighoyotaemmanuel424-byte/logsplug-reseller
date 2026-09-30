@@ -75,7 +75,7 @@ final class ProviderRegistry
             }
             if ($secret!==null && $secret!=='') {
                 $secretName=(string)($schema['secret_name']??'api_key');
-                ProviderSecretStore::put($providerId,$secretName,$secret);
+                $pdo->prepare('INSERT INTO provider_secrets(provider_id,secret_name,secret_ciphertext,updated_at) VALUES(?,?,?,CURRENT_TIMESTAMP) ON CONFLICT(provider_id,secret_name) DO UPDATE SET secret_ciphertext=EXCLUDED.secret_ciphertext,updated_at=CURRENT_TIMESTAMP')->execute([$providerId,$secretName,ProviderSecretStore::encrypt($secret)]);
             }
             $pdo->commit();
         } catch(Throwable $e) {
