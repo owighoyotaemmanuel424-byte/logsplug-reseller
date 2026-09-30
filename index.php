@@ -44,6 +44,7 @@ if (isset($_GET['ordered']) && $_GET['ordered'] === '1') {
 // Fetch products from the short-lived server cache first.
 // This removes the upstream API wait from repeat page loads.
 require_once __DIR__ . '/includes/product_api.php';
+require_once __DIR__ . '/includes/logspanel_api.php';
 if ($apiKey && $baseUrl) {
     $productResult = fetchResellerProductsFast($baseUrl, $apiKey, 60);
     $products = $productResult['products'];
@@ -62,97 +63,86 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['product_id'])) {
     $qty = isset($_POST['qty']) ? (int) $_POST['qty'] : 1;
     $qty = max(1, min(10000, $qty));
 
-    // Find product and calculate total cost (user pays this from wallet when logged in)
-    $sellPrice = 0;
-    $productName = 'Product #' . $productId;
+    $productRef = trim((string)($_POST['product_ref'] ?? ''));
+    $productId = (int)($_POST['product_id'] ?? 0);
+    $qty = isset($_POST['qty']) ? (int) $_POST['qty'] : 1;
+    $qty = max(1, min(100, $qty));
+
+    $sellPrice = 0.0;
+    $productName = 'Selected service';
+    $categoryId = $productId;
+    $minQty = 1;
+    $maxQty = 100;
     foreach ($products as $p) {
-        if ((int) $p['id'] === $productId) {
-            $productName = $p['name'];
-            $sellPrice = round($p['reseller_price'] * (1 + $markup / 100) + $adminExtra, 2);
+        $sameRef = $productRef !== '' && hash_equals((string)($p['product_ref'] ?? ''), $productRef);
+        $sameId = $productRef === '' && $productId !== 0 && (int)($p['id'] ?? 0) === $productId;
+        if ($sameRef || $sameId) {
+            $productRef = (string)($p['product_ref'] ?? '');
+            $categoryId = (int)($p['id'] ?? 0);
+            $productName = (string)($p['name'] ?? $productName);
+            $sellPrice = round((float)($p['reseller_price'] ?? $p['selling_price'] ?? 0) * (1 + $markup / 100) + $adminExtra, 2);
+            $minQty = max(1, (int)($p['min_quantity'] ?? 1));
+            $maxQty = min(100, max($minQty, (int)($p['max_quantity'] ?? 100)));
             break;
         }
     }
-    $orderTotal = round($sellPrice * $qty, 2);
+    $qty = max($minQty, min($maxQty, $qty));
 
-    $apiPayload = [
-        'product_id' => $productId,
-        'qty' => $qty,
-        'api_key' => $apiKey,
-    ];
-
-    // When user is logged in, check wallet balance before calling reseller API
-    if ($currentUser && $databaseConfigured && function_exists('getWalletBalance')) {
-        $userBalance = getWalletBalance((int) $currentUser['id']);
-        if ($userBalance < $orderTotal) {
-            $orderMessage = 'Insufficient balance. You have ₦' . number_format($userBalance, 2) . '. This order costs ₦' . number_format($orderTotal, 2) . '. Please fund your wallet (Wallet page).';
-        } else {
-            $ch = curl_init($baseUrl . '/api/reseller/order');
-            curl_setopt_array($ch, [
-                CURLOPT_POST => true,
-                CURLOPT_POSTFIELDS => json_encode($apiPayload),
-                CURLOPT_RETURNTRANSFER => true,
-                CURLOPT_HTTPHEADER => [
-                    'X-Api-Key: ' . $apiKey,
-                    'Content-Type: application/json',
-                    'Accept: application/json',
-                ],
-            ]);
-            $res = curl_exec($ch);
-            $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-            curl_close($ch);
-            $orderData = $res ? json_decode($res, true) : [];
-            if ($code === 200 && !empty($orderData['success'])) {
-                if (function_exists('deductWalletBalance') && deductWalletBalance((int) $currentUser['id'], $orderTotal)) {
-                    if (function_exists('recordOrder')) {
-                        $details = '';
-                        if (!empty($orderData['delivered']) && is_array($orderData['delivered'])) {
-                            $parts = [];
-                            foreach ($orderData['delivered'] as $d) {
-                                $parts[] = isset($d['details']) ? trim((string) $d['details']) : '';
-                            }
-                            $details = implode("\n", array_filter($parts));
-                        }
-                        recordOrder((int) $currentUser['id'], $productId, $productName, $qty, $sellPrice, (string) ($orderData['order_id'] ?? ''), $details);
-                    }
-                    $orderSuccessRedirect = true;
-                } else {
-                    $orderMessage = 'Order placed with platform but wallet deduction failed. Please contact support.';
-                }
-            } else {
-                $orderMessage = 'Order failed: ' . ($orderData['message'] ?? 'Unknown error');
-            }
-        }
+    if ($productName === 'Selected service' || $sellPrice <= 0 || $productRef === '') {
+        $orderMessage = 'This service is no longer available. Please refresh the catalog and try again.';
     } else {
-        $ch = curl_init($baseUrl . '/api/reseller/order');
-        curl_setopt_array($ch, [
-            CURLOPT_POST => true,
-            CURLOPT_POSTFIELDS => json_encode($apiPayload),
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_HTTPHEADER => [
-                'X-Api-Key: ' . $apiKey,
-                'Content-Type: application/json',
-                'Accept: application/json',
-            ],
-        ]);
-        $res = curl_exec($ch);
-        $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        curl_close($ch);
-        $orderData = $res ? json_decode($res, true) : [];
-        if ($code === 200 && !empty($orderData['success'])) {
-            if (function_exists('recordOrder')) {
-                $details = '';
-                if (!empty($orderData['delivered']) && is_array($orderData['delivered'])) {
-                    $parts = [];
-                    foreach ($orderData['delivered'] as $d) {
-                        $parts[] = isset($d['details']) ? trim((string) $d['details']) : '';
+        $orderTotal = round($sellPrice * $qty, 2);
+        $idempotencyKey = 'web-' . bin2hex(random_bytes(16));
+
+        if ($currentUser && $databaseConfigured && function_exists('getWalletBalance')) {
+            $userBalance = getWalletBalance((int) $currentUser['id']);
+            if ($userBalance < $orderTotal) {
+                $orderMessage = 'Insufficient balance. You have ₦' . number_format($userBalance, 2) . '. This order costs ₦' . number_format($orderTotal, 2) . '. Please fund your wallet (Wallet page).';
+            } else {
+                $purchase = logspanelPurchase($productRef, $categoryId, $qty, $idempotencyKey);
+                if (!empty($purchase['ok'])) {
+                    $providerOrder = $purchase['order'] ?? [];
+                    $providerTotal = isset($providerOrder['total']) ? (float)$providerOrder['total'] : ($sellPrice * $qty);
+                    $localTotal = round($providerTotal * (1 + $markup / 100) + ($adminExtra * $qty), 2);
+                    if (function_exists('deductWalletBalance') && deductWalletBalance((int) $currentUser['id'], $localTotal)) {
+                        if (function_exists('recordOrder')) {
+                            $details = '';
+                            if (!empty($providerOrder['items']) && is_array($providerOrder['items'])) {
+                                $parts = [];
+                                foreach ($providerOrder['items'] as $item) {
+                                    if (is_array($item) && isset($item['details'])) $parts[] = trim((string)$item['details']);
+                                }
+                                $details = implode("\n", array_filter($parts));
+                            }
+                            $status = (string)($providerOrder['status'] ?? 'pending');
+                            if ($status !== 'completed') $details = "Provider status: {$status}\n" . $details;
+                            recordOrder((int)$currentUser['id'], $categoryId, $productName, $qty, round($localTotal / max(1, $qty), 2), (string)($providerOrder['order_id'] ?? ''), trim($details));
+                        }
+                        $orderSuccessRedirect = true;
+                    } else {
+                        $orderMessage = 'The provider accepted the order, but the local wallet could not be debited. Please contact support before placing another order.';
                     }
-                    $details = implode("\n", array_filter($parts));
+                } else {
+                    $orderMessage = 'Order failed: ' . ($purchase['error'] ?? 'Unknown provider error');
                 }
-                recordOrder($currentUser ? (int) $currentUser['id'] : null, $productId, $productName, $qty, $sellPrice, (string) ($orderData['order_id'] ?? ''), $details);
             }
-            $orderSuccessRedirect = true;
         } else {
-            $orderMessage = 'Order failed: ' . ($orderData['message'] ?? 'Unknown error');
+            $purchase = logspanelPurchase($productRef, $categoryId, $qty, $idempotencyKey);
+            if (!empty($purchase['ok'])) {
+                $providerOrder = $purchase['order'] ?? [];
+                if (function_exists('recordOrder')) {
+                    $details = '';
+                    if (!empty($providerOrder['items']) && is_array($providerOrder['items'])) {
+                        $parts = [];
+                        foreach ($providerOrder['items'] as $item) if (is_array($item) && isset($item['details'])) $parts[] = trim((string)$item['details']);
+                        $details = implode("\n", array_filter($parts));
+                    }
+                    recordOrder($currentUser ? (int)$currentUser['id'] : null, $categoryId, $productName, $qty, $sellPrice, (string)($providerOrder['order_id'] ?? ''), trim($details));
+                }
+                $orderSuccessRedirect = true;
+            } else {
+                $orderMessage = 'Order failed: ' . ($purchase['error'] ?? 'Unknown provider error');
+            }
         }
     }
 
@@ -273,7 +263,7 @@ require __DIR__ . '/includes/header.php';
                         </div>
                         <?php if ($canOrder): ?>
                         <form method="post" class="reseller-product-card__form">
-                            <input type="hidden" name="product_id" value="<?php echo (int)$p['id']; ?>">
+                            <input type="hidden" name="product_id" value="<?php echo (int)$p['id']; ?>"><input type="hidden" name="product_ref" value="<?php echo htmlspecialchars((string)($p['product_ref'] ?? '')); ?>">
                             <input type="number" name="qty" class="qty-input" value="1" min="1" max="<?php echo max(1, (int)$p['in_stock']); ?>">
                             <button type="submit" class="btn btn-primary btn-cart" title="Add to cart" aria-label="Add to cart">
                                 <svg class="btn-cart-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
