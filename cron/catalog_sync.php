@@ -25,17 +25,20 @@ try{
         return is_array($d['data']??null)?$d['data']:[];
     };
 
-    // Do not refetch the 932+ item logs catalog every 15-minute dispatcher
-    // cycle. A failed/rate-limited logs refresh must never block numbers or
-    // boosting from being populated.
-    $existingLogs=$loadCached('catalog_logspanel');
-    if(!$existingLogs){
-        try{
-            $items=$p->catalog();
-            if($items) $save('catalog_logspanel',$items);
-        }catch(Throwable $e){
-            error_log('Logspanel logs catalog sync warning: '.$e->getMessage());
+    // Logspanel v1 defines /logs/categories as the complete catalog.
+    // Parent categories are cached separately for navigation/filtering.
+    try{
+        $parents=$p->parentCategories();
+        if($parents['error']==='' && $parents['categories']){
+            $save('catalog_logspanel_parent_categories',$parents['categories']);
+        }else{
+            error_log('Logspanel parent category sync warning: '.$parents['error']);
         }
+        $pause();
+        $items=$p->catalog();
+        if($items) $save('catalog_logspanel',$items);
+    }catch(Throwable $e){
+        error_log('Logspanel complete category catalog sync warning: '.$e->getMessage());
     }
 
     // Numbers: countries -> services for every country, stored as one
