@@ -8,6 +8,9 @@ if (PHP_SAPI !== 'cli') {
 
 try {
     $pdo=db_direct();
+    // Bootstrap the migration ledger before querying it. The first migration also
+    // defines this table, but the runner must be able to check it before 000_core.sql.
+    $pdo->exec("CREATE TABLE IF NOT EXISTS schema_migrations (version TEXT PRIMARY KEY, applied_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP)");
     $pdo->exec('SELECT pg_advisory_lock(48392017)');
     try {
         $files=glob(__DIR__.'/db/migrations/*.sql') ?: [];
