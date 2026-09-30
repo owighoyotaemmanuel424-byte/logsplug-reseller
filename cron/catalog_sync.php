@@ -24,15 +24,16 @@ try{
     $countries=$p->numberCountries();
     if($countries['error']===''){
         $save('catalog_numbers_countries',$countries['countries']);
-        foreach($countries['countries'] as $country){
-            // The provider exposes country services individually. Throttle each request.
-            $id=(int)($country['id']??0);
-            if($id<1) continue;
-            $r=$p->numberServices($id);
-            if($r['error']!=='') continue;
-            $key='catalog_numbers_services_'.$id;
-            $save($key,$r['services']);
-            $pause(2);
+
+        // Build the aggregate service cache that services.php consumes.
+        // Each country has its own provider endpoint, so fetch sequentially
+        // and throttle between calls to stay below the provider limit.
+        $numberResult=$p->allNumberServices($countries['countries']);
+        if($numberResult['services']){
+            $save('catalog_numbers_services',$numberResult['services']);
+        }
+        if($numberResult['error']!==''){
+            error_log('Logspanel number catalog warnings: '.$numberResult['error']);
         }
     }
 
@@ -41,8 +42,16 @@ try{
     if($bc['error']===''){
         $save('catalog_boost_categories',$bc['categories']);
         $pause(2);
-        $bs=$p->boostServices();
-        if($bs['error']==='') $save('catalog_boost_services',$bs['services']);
+
+        // Fetch the complete boost catalog. If the unfiltered endpoint returns
+        // no services, allBoostServices falls back to the documented categories.
+        $boostResult=$p->allBoostServices($bc['categories']);
+        if($boostResult['services']){
+            $save('catalog_boost_services',$boostResult['services']);
+        }
+        if($boostResult['error']!==''){
+            error_log('Logspanel boost catalog warnings: '.$boostResult['error']);
+        }
     }
     echo "Catalog sync completed.\n";
 } finally {
