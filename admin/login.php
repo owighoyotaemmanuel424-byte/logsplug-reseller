@@ -66,7 +66,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$noDb) {
             <div class="form-group">
                 <label for="email">Admin email</label>
                 <input type="email" id="email" name="email" required autocomplete="username"
-                       value="<?php echo htmlspecialchars((string)($_POST['email'] ?? (defined('ADMIN_DEFAULT_EMAIL') ? ADMIN_DEFAULT_EMAIL : '')); ?>">
+                       value="<?php echo htmlspecialchars((string) ($_POST['email'] ?? (defined('ADMIN_DEFAULT_EMAIL') ? ADMIN_DEFAULT_EMAIL : '')), ENT_QUOTES, 'UTF-8'); ?>">
             </div>
             <div class="form-group">
                 <label for="password">Password</label>
