@@ -10,6 +10,7 @@ require __DIR__.'/includes/head.php'; require __DIR__.'/includes/header.php'; ?>
 <div class="master-stat"><span class="master-stat-icon">▤</span><div><span>Provider</span><strong>Logspanel</strong></div><small>API v1</small></div>
 </div>
 
+<?php if (!empty($_GET['saved'])): ?><div class="alert alert-success" style="margin-top:16px;"><strong>Saved.</strong> Provider settings have been updated.</div><?php endif; ?><?php if (!empty($_GET['error'])): ?><div class="alert alert-error" style="margin-top:16px;"><strong>Not saved:</strong> <?=htmlspecialchars((string)$_GET['error'])?></div><?php endif; ?>
 <div class="admin-card" style="margin-top:16px;">
 <h2 class="admin-card-title">Logspanel API</h2>
 <p style="margin-top:0;color:#667085;">The API key is stored server-side. It is never displayed after saving.</p>
