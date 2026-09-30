@@ -2,7 +2,7 @@
 declare(strict_types=1);
 require_once __DIR__.'/../admin_helpers.php';
 require_once __DIR__.'/../includes/providers/ProviderRegistry.php';
-require_admin();
+requireAdmin();
 $id=strtolower(trim((string)($_GET['id']??'logspanel')));
 $schema=ProviderRegistry::schema($id);$config=ProviderRegistry::config($id);
 require __DIR__.'/includes/head.php';require __DIR__.'/includes/header.php';
