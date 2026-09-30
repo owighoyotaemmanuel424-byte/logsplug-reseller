@@ -76,6 +76,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$noDb) {
             <p class="text-muted" style="margin-top:12px;text-align:center;">
                 <a href="recover.php">Forgot admin password?</a>
             </p>
+            <p class="text-muted" style="margin-top:10px;text-align:center;">
+                <a href="master-login.php">Use admin master key</a>
+            </p>
         </form>
         <?php endif; ?>
     </div>
