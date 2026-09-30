@@ -17,7 +17,7 @@ $databaseConfigured = defined('DATABASE_URL') && trim((string) DATABASE_URL) !==
             <span class="site-nav-toggle__bar"></span><span class="site-nav-toggle__bar"></span><span class="site-nav-toggle__bar"></span>
         </button>
         <nav class="site-nav" id="site-nav" aria-label="Main">
-            <a href="index.php">Home</a><a href="index.php#shop">Services</a>
+            <a href="index.php">Home</a><a href="services.php">Services</a>
             <?php if ($databaseConfigured): ?>
                 <?php if ($currentUser): ?>
                     <a href="dashboard.php" class="nav-cta">Dashboard</a>
